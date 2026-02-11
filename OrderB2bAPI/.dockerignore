@@ -1,0 +1,13 @@
+.env
+*.exe
+*.pdf
+*.docx
+partnersTest/
+*.ps1
+*.json
+!migrations/
+.git
+.gitignore
+*.md
+.env.example
+env.example

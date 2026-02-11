@@ -1,0 +1,14 @@
+ "Zain Shop" "test" "partner-zain"
+✅ Partner created successfully!
+
+Partner ID: 16eebdd5-efdb-4492-a4da-a3cd380e00cc
+Partner Name: Zain Shop
+Collection Handle: partner-zain
+API Key: test
+
+⚠️  IMPORTANT: Save this API key securely! You won't be able to see it again.
+
+Catalog sync will populate this partner's products from collection 'partner-zain' (runs every 10 min).
+
+Use this API key in the Authorization header:
+Authorization: Bearer test

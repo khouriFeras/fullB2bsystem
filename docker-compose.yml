@@ -1,0 +1,80 @@
+# Single compose at repo root: ProductB2B + OrderB2bAPI + Postgres
+# Both apps use the same .env file (this directory).
+# Run from b2b/:  docker compose up -d
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: b2b_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-123123}
+      POSTGRES_DB: ${DB_NAME:-b2bapi}
+    ports:
+      # Use 5434 on host so create-partner from host can target Docker DB (avoids conflict with local Postgres on 5432)
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  productb2b:
+    build:
+      context: ./ProductB2B
+      dockerfile: Dockerfile
+    container_name: b2b_productb2b
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      # ProductB2B uses SHOPIFY_ADMIN_TOKEN; reuse same key as SHOPIFY_ACCESS_TOKEN
+      SHOPIFY_ADMIN_TOKEN: ${SHOPIFY_ACCESS_TOKEN}
+      # Service key for OrderB2bAPI server-to-server calls (must match PRODUCT_B2B_SERVICE_API_KEY in .env)
+      PRODUCT_B2B_SERVICE_API_KEY: ${PRODUCT_B2B_SERVICE_API_KEY}
+    volumes:
+      - ./ProductB2B/.shopify_token:/app/.shopify_token
+    restart: unless-stopped
+
+  getdeliverystatus:
+    build:
+      context: ./GetDeliveryStatus
+      dockerfile: Dockerfile
+    container_name: b2b_getdeliverystatus
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: "5000"
+    env_file:
+      - ./GetDeliveryStatus/.env
+    restart: unless-stopped
+
+  orderb2bapi:
+    build:
+      context: ./OrderB2bAPI
+      dockerfile: Dockerfile
+    container_name: b2b_orderb2bapi
+    ports:
+      - "${PORT:-8081}:8080"
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      PORT: "8080"
+      # When both run in Docker, orderb2bapi reaches ProductB2B by service name
+      PRODUCT_B2B_URL: http://productb2b:3000
+      GET_DELIVERY_STATUS_URL: http://getdeliverystatus:5000
+    depends_on:
+      productb2b:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      getdeliverystatus:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

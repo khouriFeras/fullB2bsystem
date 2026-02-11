@@ -1,0 +1,232 @@
+{
+	"info": {
+		"_postman_id": "271c4ee4-87df-4380-a70b-44675073b28a",
+		"name": "Wassel Test",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "2088541"
+	},
+	"item": [
+		{
+			"name": "Wassel Login",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"email\": \"test@wasselExpress.com\",\r\n  \"password\": \"123\",\r\n  \"rememberMe\": true\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://demo.wasselexpress.com/web-api/api/account/Login",
+					"protocol": "https",
+					"host": [
+						"demo",
+						"wasselexpress",
+						"com"
+					],
+					"path": [
+						"web-api",
+						"api",
+						"account",
+						"Login"
+					]
+				}
+			},
+			"response": [
+				{
+					"name": "Success",
+					"originalRequest": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"email\": \"test@wasselExpress.com\",\r\n  \"password\": \"123\",\r\n  \"rememberMe\": true\r\n}\r\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://demoapi2.wasselexpress.com/api/Account/Login",
+							"protocol": "http",
+							"host": [
+								"demoapi2",
+								"wasselexpress",
+								"com"
+							],
+							"path": [
+								"api",
+								"Account",
+								"Login"
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "plain",
+					"header": [
+						{
+							"key": "Cache-Control",
+							"value": "no-cache,no-store"
+						},
+						{
+							"key": "Pragma",
+							"value": "no-cache"
+						},
+						{
+							"key": "Transfer-Encoding",
+							"value": "chunked"
+						},
+						{
+							"key": "Content-Type",
+							"value": "text/plain; charset=utf-8"
+						},
+						{
+							"key": "Content-Encoding",
+							"value": "br"
+						},
+						{
+							"key": "Expires",
+							"value": "Thu, 01 Jan 1970 00:00:00 GMT"
+						},
+						{
+							"key": "Vary",
+							"value": "Accept-Encoding"
+						},
+						{
+							"key": "Server",
+							"value": "Kestrel"
+						},
+						{
+							"key": "Set-Cookie",
+							"value": ".AspNetCore.Identity.Application=CfDJ8KjWSjZPcDxKrL1OGLtwYROOP0EtPJZHofpqYYIc2lqocJqW6GF3YbCs08spNkgfgs7FHkI3yjoPSwa4QSqwPBpn7QHidoZ9iAw509uOEfKMPzZUIBpCV22tr4zRQPdgLuGzDFTLJjdBU90mGvkxWWWuq9x3Ai9veSpRT4gIfegtxCteUljFJ0lvk_w2mfNli-dRsyvd-Geuw3xZevSacub6yypGbTY6F5NY4Gzt8lggxAqNbk26eJSM9pU32JRUz_CQEuKIysHwKyxH1JfuS1N4DVYWIa4nJxOHITPQq1iUfVc15HAHE-pQ5G99vBnNaVK2HJR7EfQwZTwhZ_vPFzaj78NA4rlYrauyGaKv13xpJi1KiWUPVHS-ep1jBnX9WL-0TEI5spf32T67XzEZFHb6h04XbTq4uTxdUYtCQ5H6gfZ6I-EEQZzQtga4ceuu_SBADb05uS7L1h27c7jPNMS-4_r19tm6Wj8Dh7bs9UlteUw-SRCnWGjkiY4Hkt3_hIkqYedUXW9QAdMADg_oCxtjSS2fdkdNjg26ijUtgfwXdkjSBBjIK8I7ABhUXLmUflxXE-OyaAw55AaoQCYh8sCaWfOV2wW-iiwMD2xb9UafdBnXmNu_nzBqhE8T80QbXs9u0P8SesR2Ot2_olf0FaLZzLV28mEy_Eg02SWG9ZQqs1kRhpMI82YfbvnupsHtTAZd7sOKF4TrExxP7nDcuVJX2tJuoDiCRaENeW_Ic4Fs3OpCSG_Kyg7YA598FzxhE09fg7SGAi_WQL9t7--ncMq4HvbDk6pwDsqV1IeXvN8hvzDFMAxrT263vDK3llu-hjOkv76k_GckvKqA45ZHMEneQpwm1vI-IgOMNmgM05X2kYXCztAlV9LKtdrTEInYeA; expires=Wed, 09 Aug 2023 21:47:57 GMT; path=/; samesite=lax; httponly"
+						},
+						{
+							"key": "X-StackifyID",
+							"value": "V2|00ed1adc-9b4a-40a7-a903-34b98d3a60a8|C0|CD0"
+						},
+						{
+							"key": "X-Powered-By",
+							"value": "ASP.NET"
+						},
+						{
+							"key": "Date",
+							"value": "Wed, 26 Jul 2023 21:47:56 GMT"
+						}
+					],
+					"cookie": [],
+					"body": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiIwZWE1YmI3MS0xMGRlLTRmNjctOTA3ZS0zM2ViMjZhMjQ4ZGYiLCJ1bmlxdWVfbmFtZSI6InRlc3RAd2Fzc2VsRXhwcmVzcy5jb20iLCJlbWFpbCI6InRlc3RAd2Fzc2VsRXhwcmVzcy5jb20iLCJyb2xlIjoiQ29tcGFueSIsImNhbnN0YXIiOiJGYWxzZSIsImNhbnVuZG9kZWxpdmVyeWFjdGlvbiI6IkZhbHNlIiwiY2FudW5kb3BpY2t1cGFjdGlvbiI6IkZhbHNlIiwiY2FuY2FuY2VsIjoiRmFsc2UiLCJjYW51bmRvY29kY29sbGVjdGVkIjoiRmFsc2UiLCJjYW51bmRvZGVsaXZlcnlmZWVwYWlkIjoiRmFsc2UiLCJjYW51bmRvY29tcGFueWZlZXNzZXR0ZWxlZCI6IkZhbHNlIiwidHJhbnNmZXJiZXR3ZWVuZHJpdmVycyI6IkZhbHNlIiwiaXNkZXRhaWxlZGNvZCI6IkZhbHNlIiwiY29tcGlzc2VydmljZXR5cGVyZXF1aXJlZCI6IkZhbHNlIiwiY29tcGFueW5hbWUiOiJ0ZXN0Iiwic3RvcmVOYW1lIjoiIiwiY29tcGFueWlkIjoiMiIsImRyaXZlcnR5cGUiOiIiLCJoYXNyZWNpcGllbnRzbWFuYWdlbWVudCI6IkZhbHNlIiwiaXNzZWxmZGVsaXZlcnkiOiJGYWxzZSIsImlzYXV0b3JlZmVyZW5jZW5vIjoiRmFsc2UiLCJkaXJlY3Rkcm9wb2ZmIjoiVHJ1ZSIsInByZXZlbnRyZXR1cm53aXRobm9jc2FjdGlvbiI6IlRydWUiLCJhcmVhcmVxdWlyZWQiOiJUcnVlIiwidmFsaWRhdGVyZWNlcHRpb25kYXRhYWRkcmVzcyI6IlRydWUiLCJkZWxpdmVyeWRhdGVkaXNhYmxlZGZvcmNvbXBhbnkiOiJUcnVlIiwiZGVsaXZlcnlkYXRlZGF5c3BhbiI6IjEiLCJkcml2ZXJuYW1lIjoiIiwiZHJpdmVyaWQiOiIiLCJtYWlubWVudXJvdXRlIjoiL2NvbXBhbnkvZWNvbW1lcmNlLWNvbXBhbnktZGFzaGJvYXJkIiwiY29tcGFueXN0b3JlaWQiOiIiLCJuYmYiOjE2OTA0MDgwNzcsImV4cCI6MTY5MTAxMjg3NywiaWF0IjoxNjkwNDA4MDc3fQ.IPu7A3k4KNl8Nll_izV0NlnyYGqnTL14Ai7WVi_F7rw"
+				}
+			]
+		},
+		{
+			"name": "Post Shipment API",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiIwZWE1YmI3MS0xMGRlLTRmNjctOTA3ZS0zM2ViMjZhMjQ4ZGYiLCJ1bmlxdWVfbmFtZSI6InRlc3RAd2Fzc2VsRXhwcmVzcy5jb20iLCJlbWFpbCI6InRlc3RAd2Fzc2VsRXhwcmVzcy5jb20iLCJyb2xlIjoiQ29tcGFueSIsImNhbnN0YXIiOiJGYWxzZSIsImNhbnVuZG9kZWxpdmVyeWFjdGlvbiI6IkZhbHNlIiwiY2FudW5kb3BpY2t1cGFjdGlvbiI6IkZhbHNlIiwiY2FuY2FuY2VsIjoiRmFsc2UiLCJjYW51bmRvY29kY29sbGVjdGVkIjoiRmFsc2UiLCJjYW51bmRvZGVsaXZlcnlmZWVwYWlkIjoiRmFsc2UiLCJjYW51bmRvY29tcGFueWZlZXNzZXR0ZWxlZCI6IkZhbHNlIiwidHJhbnNmZXJiZXR3ZWVuZHJpdmVycyI6IkZhbHNlIiwiaXNkZXRhaWxlZGNvZCI6IkZhbHNlIiwiY29tcGlzc2VydmljZXR5cGVyZXF1aXJlZCI6IkZhbHNlIiwiY29tcGFueW5hbWUiOiJ0ZXN0Iiwic3RvcmVOYW1lIjoiIiwiY29tcGFueWlkIjoiMiIsImRyaXZlcnR5cGUiOiIiLCJoYXNyZWNpcGllbnRzbWFuYWdlbWVudCI6IkZhbHNlIiwiaXNzZWxmZGVsaXZlcnkiOiJGYWxzZSIsImlzYXV0b3JlZmVyZW5jZW5vIjoiRmFsc2UiLCJkaXJlY3Rkcm9wb2ZmIjoiVHJ1ZSIsInByZXZlbnRyZXR1cm53aXRobm9jc2FjdGlvbiI6IkZhbHNlIiwiYXJlYXJlcXVpcmVkIjoiRmFsc2UiLCJ2YWxpZGF0ZXJlY2VwdGlvbmRhdGFhZGRyZXNzIjoiVHJ1ZSIsImRlbGl2ZXJ5ZGF0ZWRpc2FibGVkZm9yY29tcGFueSI6IkZhbHNlIiwiZGVsaXZlcnlkYXRlZGF5c3BhbiI6IjEiLCJkcml2ZXJuYW1lIjoiIiwiZHJpdmVyaWQiOiIiLCJtYWlubWVudXJvdXRlIjoiL2NvbXBhbnkvZWNvbW1lcmNlLWNvbXBhbnktZGFzaGJvYXJkIiwiY29tcGFueXN0b3JlaWQiOiIiLCJuYmYiOjE3MDg1MjAzNDksImV4cCI6MTcwOTEyNTE0OSwiaWF0IjoxNzA4NTIwMzQ5fQ.LHfeeKDOAb_qoblUYhQ0lnYq3Jok6VrYdDAC7Xw4ofE",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "[\r\n  {\r\n    \"pieceId\": null,\r\n    \"lat\": null,\r\n    \"lng\": null,\r\n    \"companyStoreID\": 2,\r\n    \"recipientCity\": \"عمان\",\r\n    \"recipientArea\": \"خلدا\",\r\n    \"remark\": \"deliver after 6:00PM\",\r\n    \"addressDescription\": \" Beside supermarket abc\",\r\n    \"recipientName\": \"Recipient Name - Required field\",\r\n    \"recipientEmail\": \"a@b.c\",\r\n    \"recipientPhoneNumber\": \"962791234567\",\r\n    \"recipientSecondPhoneNumber\": null,\r\n    \"codAmount\": \"5\",\r\n    \"itemDetails\": \"breakable\",\r\n    \"referenceID\": \"random123\",\r\n    \"companyID\": 2,\r\n    \"itemWeight\": null,\r\n    \"itemDimension\": null,\r\n    \"productType\": null\r\n  }\r\n]\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://demo.wasselexpress.com/web-api/api/Integration/SubmitShippingRequests",
+					"protocol": "https",
+					"host": [
+						"demo",
+						"wasselexpress",
+						"com"
+					],
+					"path": [
+						"web-api",
+						"api",
+						"Integration",
+						"SubmitShippingRequests"
+					]
+				}
+			},
+			"response": [
+				{
+					"name": "Success",
+					"originalRequest": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "[\r\n  {\r\n    \"pieceId\": null,\r\n    \"lat\": null,\r\n    \"lng\": null,\r\n    \"companyStoreID\": 2,\r\n    \"recipientCity\": \"عمان\",\r\n    \"recipientArea\": \"خلدا\",\r\n    \"remark\": \"deliver after 6:00PM\",\r\n    \"addressDescription\": \" Beside supermarket abc\",\r\n    \"recipientName\": \"Recipient Name - Required field\",\r\n    \"recipientEmail\": \"a@b.c\",\r\n    \"recipientPhoneNumber\": \"962791234567\",\r\n    \"recipientSecondPhoneNumber\": null,\r\n    \"codAmount\": \"5\",\r\n    \"itemDetails\": \"breakable\",\r\n    \"referenceID\": \"002211\",\r\n    \"companyID\": 2,\r\n    \"itemWeight\": null,\r\n    \"itemDimension\": null,\r\n    \"productType\": null\r\n  }\r\n]\r\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://demoapi2.wasselexpress.com/api/Integration/SubmitShippingRequests",
+							"protocol": "http",
+							"host": [
+								"demoapi2",
+								"wasselexpress",
+								"com"
+							],
+							"path": [
+								"api",
+								"Integration",
+								"SubmitShippingRequests"
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Length",
+							"value": "148"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json; charset=utf-8"
+						},
+						{
+							"key": "Server",
+							"value": "Kestrel"
+						},
+						{
+							"key": "X-StackifyID",
+							"value": "V2|801cf0aa-de18-42fa-a32b-855a75d2c702|C0|CD0"
+						},
+						{
+							"key": "X-Powered-By",
+							"value": "ASP.NET"
+						},
+						{
+							"key": "Date",
+							"value": "Wed, 26 Jul 2023 21:51:06 GMT"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"isSuccess\": true,\n    \"validations\": [],\n    \"data\": [\n        {\n            \"referenceNumber\": \"002211\",\n            \"pieceId\": null,\n            \"awb\": \"23070002000001\",\n            \"awB_File\": null\n        }\n    ],\n    \"httpStatusCode\": 200\n}"
+				}
+			]
+		}
+	]
+}

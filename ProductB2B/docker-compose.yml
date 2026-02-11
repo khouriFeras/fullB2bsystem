@@ -1,0 +1,14 @@
+# Standalone ProductB2B: use shared .env at repo root (b2b/.env)
+# Run from ProductB2B/:  docker compose up -d
+# Or run everything from b2b/:  docker compose -f ../docker-compose.yml up -d
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - ../.env
+    # Auth: .env has SHOPIFY_* and PARTNER_API_KEYS. Mount token if you use OAuth callback.
+    volumes:
+      - ./.shopify_token:/app/.shopify_token
+    restart: unless-stopped

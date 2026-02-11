@@ -1,0 +1,19 @@
+# Sample systemd unit for GetDeliveryStatus (Gunicorn).
+# Copy to /etc/systemd/system/getdeliverystatus.service
+# Replace 'youruser' and paths with your actual user and app directory.
+# Then: sudo systemctl daemon-reload && sudo systemctl enable getdeliverystatus && sudo systemctl start getdeliverystatus
+
+[Unit]
+Description=Gunicorn instance for GetDeliveryStatus
+After=network.target
+
+[Service]
+User=youruser
+Group=www-data
+WorkingDirectory=/home/youruser/getdeliverystatus
+Environment="PATH=/home/youruser/getdeliverystatus/venv/bin"
+Environment="PORT=5000"
+ExecStart=/home/youruser/getdeliverystatus/venv/bin/gunicorn --workers 2 --threads 2 --timeout 60 --bind unix:getdeliverystatus.sock -m 007 wsgi:app
+
+[Install]
+WantedBy=multi-user.target

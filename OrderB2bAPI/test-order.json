@@ -1,0 +1,32 @@
+{
+  "partner_order_id": "test-order-5006",
+  "items": [
+    {
+      "sku": "Dmlux",
+      "title": "ماكينة صنع المشروبات الغازية DrinkMate LUX ستانلس ستيل مع أسطوانة غاز CO2",
+      "price": 10,
+      "quantity": 1,
+      "product_url": "https://example.com/p1"
+    }
+  ],
+  "customer": {
+    "first_name": "Zezo",
+    "last_name": "Customer",
+    "email": "a1@gmail.com",
+    "phone_number": "0778888881"
+  },
+  "shipping": {
+    "city": "Amman",
+    "area": "Abdoun",
+    "address": "123 Main St, Building 5",
+    "postal_code": "",
+    "country": "Jordan"
+  },
+  "totals": {
+    "subtotal": 199,
+    "tax": 1.6,
+    "shipping": 3,
+    "total": 203.6
+  },
+  "payment_method": "Cash On Delivery (COD)"
+}

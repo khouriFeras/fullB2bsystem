@@ -1,0 +1,3 @@
+# Local env with secrets – do not commit
+.env
+# Keep .env.example tracked for deployment template

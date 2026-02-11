@@ -1,0 +1,8 @@
+requests>=2.28.0
+python-dotenv>=1.0.0
+flask>=3.0.0
+beautifulsoup4>=4.12.0
+gunicorn>=21.0.0
+
+# Optional: for auto-filling the tracking search and extracting data (set USE_PLAYWRIGHT=1 in .env)
+playwright>=1.40.0

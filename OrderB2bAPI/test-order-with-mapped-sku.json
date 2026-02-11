@@ -1,0 +1,45 @@
+{
+  "partner_order_id": "test-order-127",
+  "items": [
+    {
+      "sku": "Drinkmate-Syrup3",
+      "title": "Product Drinkmate-Syrup3",
+      "price": 10,
+      "quantity": 1,
+      "product_url": "https://example.com/p1"
+    },
+    {
+      "sku": "Spong daddy",
+      "title": "Product Spong daddy",
+      "price": 3.5,
+      "quantity": 2,
+      "product_url": "https://example.com/p2"
+    },
+    {
+      "sku": "notInOurSotre",
+      "title": "custom product with url",
+      "price": 7,
+      "quantity": 1,
+      "product_url": "https://example.com/p3"
+    }
+  ],
+  "customer": {
+    "name": "test user",
+    "phone": "0772462582"
+  },
+  "shipping": {
+    "street": "na",
+    "city": "amman",
+    "state": "khalda",
+    "postal_code": "00000",
+    "country": "JO"
+  },
+  "totals": {
+    "subtotal": 24,
+    "tax": 1.6,
+    "shipping": 100,
+    "total": 111.6
+  },
+  "payment_status": "paid",
+  "payment_method": "Cash On Delivery (COD)"
+}
