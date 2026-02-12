@@ -23,7 +23,6 @@ fi
 
 DB_PASSWORD="${DB_PASSWORD:-123123}"
 DB_NAME="${DB_NAME:-b2bapi}"
-# Host port for postgres (compose maps 5434:5432)
 DB_PORT_HOST="${DB_PORT_HOST:-5434}"
 
 echo "Running migrations (database: $DB_NAME, host port: $DB_PORT_HOST) ..."

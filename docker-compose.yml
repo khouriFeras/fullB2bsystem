@@ -35,6 +35,9 @@ services:
       SHOPIFY_ADMIN_TOKEN: ${SHOPIFY_ACCESS_TOKEN}
       # Service key for OrderB2bAPI server-to-server calls (must match PRODUCT_B2B_SERVICE_API_KEY in .env)
       PRODUCT_B2B_SERVICE_API_KEY: ${PRODUCT_B2B_SERVICE_API_KEY}
+      # Required for POST /admin/setup/webhooks (X-Setup-Key header) and webhook registration URLs
+      ADMIN_SETUP_KEY: ${ADMIN_SETUP_KEY}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
     volumes:
       - ./ProductB2B/.shopify_token:/app/.shopify_token
     restart: unless-stopped

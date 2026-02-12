@@ -21,13 +21,9 @@ apt-get install -y -qq docker-compose-plugin 2>/dev/null || {
 }
 
 echo "=== Configuring firewall (UFW) ==="
-ufw allow 22/tcp   # SSH
-ufw allow 80/tcp   # HTTP (redirect to HTTPS or serve)
-ufw allow 443/tcp  # HTTPS
-# Uncomment to expose API directly without reverse proxy:
-# ufw allow 8081/tcp
-# ufw allow 3000/tcp
-# ufw allow 5000/tcp
+ufw allow 22/tcp
+ufw allow 80/tcp
+ufw allow 443/tcp
 ufw --force enable || true
 ufw status
 

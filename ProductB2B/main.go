@@ -2707,10 +2707,53 @@ func isProductInCollection(shop, token, ver, productGID, collectionHandle string
 	}
 
 	// Check if the product is in the Partner Catalog collection
+	var productHandles []string
 	for _, coll := range resp.Data.Product.Collections.Nodes {
+		productHandles = append(productHandles, coll.Handle)
 		if coll.Handle == collectionHandle {
 			return true, nil
 		}
+	}
+
+	log.Printf("[COLLECTION DEBUG] Product %s: looking for handle=%q, product has %d collections: %v",
+		productGID, collectionHandle, len(productHandles), productHandles)
+
+	// Fallback: query collection directly (more reliable when product was just edited—API lag)
+	// Extract numeric ID from GID for query (e.g. gid://shopify/Product/9049439994068 -> 9049439994068)
+	numericID := strings.TrimPrefix(productGID, "gid://shopify/Product/")
+	q2 := `query($handle:String!,$q:String!){
+		collectionByHandle(handle:$handle){
+			id
+			products(first:1,query:$q){
+				nodes{ id }
+			}
+		}
+	}`
+	req2 := gqlReq{
+		Query: q2,
+		Variables: map[string]interface{}{
+			"handle": collectionHandle,
+			"q":     fmt.Sprintf("id:%s", numericID),
+		},
+	}
+	raw2, err2 := shopifyGraphQL(shop, token, ver, req2)
+	if err2 != nil {
+		log.Printf("[COLLECTION DEBUG] Fallback query error for product %s: %v", productGID, err2)
+	} else {
+		var resp2 struct {
+			Data struct {
+				Collection *struct {
+					Products struct {
+						Nodes []struct{ ID string } `json:"nodes"`
+					} `json:"products"`
+				} `json:"collectionByHandle"`
+			} `json:"data"`
+		}
+		if json.Unmarshal(raw2, &resp2) == nil && resp2.Data.Collection != nil && len(resp2.Data.Collection.Products.Nodes) > 0 {
+			log.Printf("[COLLECTION DEBUG] Fallback confirmed product %s in collection %q", productGID, collectionHandle)
+			return true, nil
+		}
+		log.Printf("[COLLECTION DEBUG] Fallback: product %s not found in collection %q", productGID, collectionHandle)
 	}
 
 	return false, nil
@@ -3094,7 +3137,25 @@ func handleProductWebhook(w http.ResponseWriter, r *http.Request, clientSecret, 
 
 	// Handle collection membership changes
 	if !inCollection && wasInCollection {
-		// Product was REMOVED from collection - notify about removal
+		// Retry: Shopify API can lag when product is edited (e.g. price change); collection check may return stale false
+		for retry := 0; retry < 3 && !inCollection; retry++ {
+			time.Sleep(3 * time.Second)
+			inCollection, _ = isProductInCollection(shop, token, ver, productGID, collHandle)
+			if inCollection {
+				log.Printf("[WEBHOOK DEBUG] Product %d: Retry %d confirmed in collection (was transient API lag)", payload.ID, retry+1)
+				break
+			}
+		}
+		if inCollection {
+			// Treat as normal product update (e.g. price change), not removal
+			changes := detectProductChanges(shop, token, ver, productGID, eventType, payload, collHandle)
+			notifyPartners(productGID, eventType, payload, changes)
+			w.WriteHeader(200)
+			w.Write([]byte("OK"))
+			return
+		}
+		// Product was REMOVED from collection (or still appears removed after retries)
+		// Note: If you only changed price, your collection may be "automated" with rules—price changes can exclude products
 		log.Printf("[COLLECTION CHANGE] Product %d (%s) REMOVED from Partner Catalog", payload.ID, payload.Handle)
 		notifyPartners(productGID, "collection_removed", payload, []string{"Product removed from Partner Catalog collection"})
 		// Remove from cache since it's no longer in collection

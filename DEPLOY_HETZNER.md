@@ -102,16 +102,17 @@ docker compose restart orderb2bapi
 
 ## 4. Optional: Reverse proxy and SSL (production)
 
-For production, put Nginx (or Caddy) in front and use HTTPS. GetDeliveryStatus webhooks must be served over HTTPS.
+For production, put Nginx (or Caddy) in front and use HTTPS. GetDeliveryStatus and Shopify webhooks must be served over HTTPS.
 
 - Install Nginx and Certbot (e.g. `sudo apt install nginx certbot python3-certbot-nginx`).
-- Obtain certificates, e.g. `sudo certbot --nginx -d api.yourdomain.com -d webhooks.yourdomain.com`.
-- Use the sample configs in `deploy/`:
-  - [deploy/nginx-api.conf](deploy/nginx-api.conf) – OrderB2bAPI → `https://api.yourdomain.com` → `http://127.0.0.1:8081`
-  - [deploy/nginx-webhooks.conf](deploy/nginx-webhooks.conf) – GetDeliveryStatus → `https://webhooks.yourdomain.com` → `http://127.0.0.1:5000`
-  - [deploy/nginx-products.conf](deploy/nginx-products.conf) – ProductB2B (optional) → `https://products.yourdomain.com` → `http://127.0.0.1:3000`
+- Use the sample configs in `deploy/` (preconfigured for **jafarshop.com** subdomains):
+  - [deploy/nginx-api.conf](deploy/nginx-api.conf) – OrderB2bAPI → `https://api.jafarshop.com` → `http://127.0.0.1:8081`
+  - [deploy/nginx-products.conf](deploy/nginx-products.conf) – ProductB2B → `https://products.jafarshop.com` → `http://127.0.0.1:3000`
+  - [deploy/nginx-webhooks.conf](deploy/nginx-webhooks.conf) – GetDeliveryStatus → `https://webhooks.jafarshop.com` → `http://127.0.0.1:5000`
 
-Copy each file to `/etc/nginx/sites-available/`, edit `server_name` and SSL paths, enable the site, then `sudo nginx -t && sudo systemctl reload nginx`. With a reverse proxy, you can leave 8081, 3000, and 5000 closed to the internet and only expose 80/443.
+Copy each file to `/etc/nginx/sites-available/`, enable the site, run Certbot for the hostnames, then `sudo nginx -t && sudo systemctl reload nginx`. With a reverse proxy, you can leave 8081, 3000, and 5000 closed to the internet and only expose 80/443.
+
+**Full steps for jafarshop.com (DNS, Nginx, SSL, Shopify App URL, webhooks):** see [deploy/JAFARSHOP_DOMAIN.md](deploy/JAFARSHOP_DOMAIN.md).
 
 ---
 
@@ -125,6 +126,29 @@ Copy each file to `/etc/nginx/sites-available/`, edit `server_name` and SSL path
 
 ---
 
+## 6. E2E test (optional)
+
+To run the full flow (create partner → catalog → cart submit → order get → delivery status), use the E2E test script.
+
+**On the server** (from `~/b2b`), with a real Shopify collection handle that has products:
+
+```bash
+sed -i 's/\r$//' deploy/test-e2e.sh   # fix CRLF if copied from Windows
+COLLECTION_HANDLE=wholesale bash deploy/test-e2e.sh
+```
+
+Replace `wholesale` with your Shopify collection handle. The script will create a partner, then call catalog, submit a cart (using the first SKU from the catalog), fetch the order, and call delivery-status. If `./deploy/test-e2e.sh` says "No such file or directory", use `bash deploy/test-e2e.sh` instead.
+
+**Using an existing partner API key** (from your PC or server):
+
+```bash
+API_BASE=http://95.217.6.87:8081 PARTNER_API_KEY=your-saved-api-key bash deploy/test-e2e.sh
+```
+
+See [deploy/test-e2e.sh](deploy/test-e2e.sh) for env vars (`API_BASE`, `PARTNER_API_KEY`, `COLLECTION_HANDLE`). To **see every server response** in the terminal, run with `SHOW_RESPONSES=1` or follow the manual steps in [deploy/TEST_E2E_STEPS.md](deploy/TEST_E2E_STEPS.md).
+
+---
+
 ## Files added for deployment
 
 | File | Purpose |
@@ -132,8 +156,11 @@ Copy each file to `/etc/nginx/sites-available/`, edit `server_name` and SSL path
 | [.env.example](.env.example) | Template for root `.env` (postgres, OrderB2bAPI, ProductB2B vars). |
 | [deploy/setup-server.sh](deploy/setup-server.sh) | One-time server setup: Docker, Compose, UFW. |
 | [deploy/run-migrations.sh](deploy/run-migrations.sh) | One-time DB migrations using golang-migrate. |
-| [deploy/nginx-api.conf](deploy/nginx-api.conf) | Nginx sample for OrderB2bAPI (HTTPS). |
-| [deploy/nginx-webhooks.conf](deploy/nginx-webhooks.conf) | Nginx sample for GetDeliveryStatus (HTTPS). |
-| [deploy/nginx-products.conf](deploy/nginx-products.conf) | Nginx sample for ProductB2B (HTTPS, optional). |
+| [deploy/test-e2e.sh](deploy/test-e2e.sh) | E2E test: partner (optional), catalog, cart submit, order get, delivery status. |
+| [deploy/nginx-api.conf](deploy/nginx-api.conf) | Nginx sample for OrderB2bAPI (HTTPS, api.jafarshop.com). |
+| [deploy/nginx-products.conf](deploy/nginx-products.conf) | Nginx sample for ProductB2B (HTTPS, products.jafarshop.com). |
+| [deploy/nginx-webhooks.conf](deploy/nginx-webhooks.conf) | Nginx sample for GetDeliveryStatus (HTTPS, webhooks.jafarshop.com). |
+| [deploy/JAFARSHOP_DOMAIN.md](deploy/JAFARSHOP_DOMAIN.md) | Step-by-step: connect stack to jafarshop.com (DNS, Nginx, SSL, Shopify). |
+| [deploy/PARTNER_API_ACCESS.md](deploy/PARTNER_API_ACCESS.md) | How partners reach the API and receive updates (URL, auth, polling, webhook). |
 
 No code changes are required for a basic deploy; only server setup, env files, and one-time migrations.

@@ -1,3 +1,13 @@
 # Local env with secrets – do not commit
 .env
 # Keep .env.example tracked for deployment template
+
+# Secrets and test data
+partnerSecret.txt
+testPartnetInfo.txt
+**/.shopify_token
+GetDeliveryStatus/.env
+
+# Local notes (optional – remove to track)
+# make order test.txt
+# ngrok*.txt
