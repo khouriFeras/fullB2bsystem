@@ -99,6 +99,10 @@ func syncCollectionMembership(shop, token, ver, collHandle, collTitle string) {
 		currentProducts[gid] = true
 	}
 
+	// Bootstrap: if cache was empty at start, this is first sync—don't flood "added" for all products
+	cacheSizeAtStart := 0
+	productStateCache.Range(func(_, _ interface{}) bool { cacheSizeAtStart++; return true })
+
 	// Find products that were ADDED to collection
 	var addedProducts []string
 	for _, gid := range allProductGIDs {
@@ -109,9 +113,11 @@ func syncCollectionMembership(shop, token, ver, collHandle, collTitle string) {
 				addedProducts = append(addedProducts, gid)
 			}
 		} else {
-			// Product not in cache at all - might be newly added
-			// We'll treat it as added if it's the first time we see it
-			addedProducts = append(addedProducts, gid)
+			// Product not in cache: either newly added, or first sync (bootstrap)
+			// Skip "not in cache" adds during bootstrap to avoid notifying entire catalog
+			if cacheSizeAtStart > 0 {
+				addedProducts = append(addedProducts, gid)
+			}
 		}
 	}
 
@@ -1647,18 +1653,17 @@ func main() {
 		})
 	})
 
-	// Start background sync job to detect collection membership changes
-	// Runs every 10 minutes
+	// Start background sync job to detect collection add/remove (Shopify doesn't webhook those)
+	// Runs every 2 minutes so add/remove is detected quickly
 	if collHandle != "" || collTitle != "" {
-		log.Println("Starting background collection membership sync (runs every 5 minutes)")
+		log.Println("Starting background collection membership sync (runs every 2 minutes)")
 		go func() {
-			ticker := time.NewTicker(10 * time.Minute)
+			ticker := time.NewTicker(2 * time.Minute)
 			defer ticker.Stop()
 
 			// Run immediately on startup
 			syncCollectionMembership(shop, token, ver, collHandle, collTitle)
 
-			// Then run every 5 minutes
 			for range ticker.C {
 				syncCollectionMembership(shop, token, ver, collHandle, collTitle)
 			}
