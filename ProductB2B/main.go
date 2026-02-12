@@ -3150,39 +3150,18 @@ func handleProductWebhook(w http.ResponseWriter, r *http.Request, clientSecret, 
 	log.Printf("[WEBHOOK DEBUG] Product %d: Current collection membership check: inCollection=%v, wasInCollection=%v, hadPreviousState=%v",
 		payload.ID, inCollection, wasInCollection, hadPreviousState)
 
-	// Handle collection membership changes
-	if !inCollection && wasInCollection {
-		if eventType != "delete" {
-			// products/update: API says not in collection but cache says it was. Likely API lag after an edit.
-			// Trust cache—product is in catalog. Notify partners of the actual changes, but filter out
-			// the false "Product removed" that detectProductChanges would add (it sees current=false).
-			log.Printf("[WEBHOOK] Product %d: inCollection=false, wasInCollection=true (API lag)—notifying partners of changes", payload.ID)
-			changes := detectProductChanges(shop, token, ver, productGID, eventType, payload, collHandle)
-			// Remove false "Product removed" — API lag makes us think it left the collection
-			filtered := make([]string, 0, len(changes))
-			for _, c := range changes {
-				if c != "Product removed from Partner Catalog collection" {
-					filtered = append(filtered, c)
-				}
-			}
-			if len(filtered) == 0 {
-				filtered = []string{"Product updated (no specific changes detected)"}
-			}
-			notifyPartners(productGID, eventType, payload, filtered)
-			// Override cache: detectProductChanges stored InPartnerCatalog=false (API lag). Keep it true.
-			if c, ok := productStateCache.Load(productGID); ok {
-				st := c.(*ProductState)
-				st.InPartnerCatalog = true
-				productStateCache.Store(productGID, st)
-			}
-			w.WriteHeader(200)
-			w.Write([]byte("OK"))
-			return
+	// Handle: product not in collection (inCollection=false)
+	// Never notify partners about products outside the catalog—they only care about catalog items.
+	if !inCollection {
+		if eventType == "delete" && wasInCollection {
+			// products/delete: product was in catalog, now deleted—notify removal
+			log.Printf("[COLLECTION CHANGE] Product %d (%s) REMOVED from Partner Catalog", payload.ID, payload.Handle)
+			notifyPartners(productGID, "collection_removed", payload, []string{"Product removed from Partner Catalog collection"})
+			productStateCache.Delete(productGID)
+		} else {
+			// products/update or product never in catalog: no notification
+			log.Printf("[WEBHOOK] Product %d: not in catalog—skipping partner notification", payload.ID)
 		}
-		// products/delete only: product was actually deleted and was in catalog—notify removal
-		log.Printf("[COLLECTION CHANGE] Product %d (%s) REMOVED from Partner Catalog", payload.ID, payload.Handle)
-		notifyPartners(productGID, "collection_removed", payload, []string{"Product removed from Partner Catalog collection"})
-		productStateCache.Delete(productGID)
 		w.WriteHeader(200)
 		w.Write([]byte("OK"))
 		return
