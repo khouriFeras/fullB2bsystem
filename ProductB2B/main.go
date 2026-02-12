@@ -3151,25 +3151,43 @@ func handleProductWebhook(w http.ResponseWriter, r *http.Request, clientSecret, 
 		payload.ID, inCollection, wasInCollection, hadPreviousState)
 
 	// Handle: product not in collection (inCollection=false)
-	// Never notify partners about products outside the catalog—they only care about catalog items.
 	if !inCollection {
-		if eventType == "delete" && wasInCollection {
+		if !wasInCollection {
+			// Product was never in catalog and still isn't—never notify
+			log.Printf("[WEBHOOK] Product %d: not in catalog, was never in catalog—skipping", payload.ID)
+			w.WriteHeader(200)
+			w.Write([]byte("OK"))
+			return
+		}
+		// wasInCollection=true but API says not in collection now
+		if eventType == "delete" {
 			// products/delete: product was in catalog, now deleted—notify removal
 			log.Printf("[COLLECTION CHANGE] Product %d (%s) REMOVED from Partner Catalog", payload.ID, payload.Handle)
 			notifyPartners(productGID, "collection_removed", payload, []string{"Product removed from Partner Catalog collection"})
 			productStateCache.Delete(productGID)
-		} else {
-			// products/update or product never in catalog: no notification
-			log.Printf("[WEBHOOK] Product %d: not in catalog—skipping partner notification", payload.ID)
+			w.WriteHeader(200)
+			w.Write([]byte("OK"))
+			return
 		}
-		w.WriteHeader(200)
-		w.Write([]byte("OK"))
-		return
-	}
-
-	if !inCollection && !wasInCollection {
-		// Product was never in collection and still isn't - ignore webhook
-		log.Printf("Product %d (%s) not in Partner Catalog, ignoring webhook", payload.ID, payload.Handle)
+		// products/update: API often returns stale inCollection=false after an edit (API lag).
+		// Trust cache—product is in catalog. Notify partners, but filter out false "Product removed".
+		log.Printf("[WEBHOOK] Product %d: inCollection=false, wasInCollection=true (API lag)—notifying partners", payload.ID)
+		changes := detectProductChanges(shop, token, ver, productGID, eventType, payload, collHandle)
+		filtered := make([]string, 0, len(changes))
+		for _, c := range changes {
+			if c != "Product removed from Partner Catalog collection" {
+				filtered = append(filtered, c)
+			}
+		}
+		if len(filtered) == 0 {
+			filtered = []string{"Product updated (no specific changes detected)"}
+		}
+		notifyPartners(productGID, eventType, payload, filtered)
+		if c, ok := productStateCache.Load(productGID); ok {
+			st := c.(*ProductState)
+			st.InPartnerCatalog = true
+			productStateCache.Store(productGID, st)
+		}
 		w.WriteHeader(200)
 		w.Write([]byte("OK"))
 		return
