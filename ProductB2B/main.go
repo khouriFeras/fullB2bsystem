@@ -3137,18 +3137,15 @@ func handleProductWebhook(w http.ResponseWriter, r *http.Request, clientSecret, 
 
 	// Handle collection membership changes
 	if !inCollection && wasInCollection {
-		// products/update: Shopify API often returns stale "not in collection" when product is edited.
-		// Trust cache: treat as update unless this is a DELETE webhook.
-		// Only products/delete means real removal.
+		// products/update: Product not in collection now. Could be: (a) API lag, (b) product was never in catalog.
+		// Either way: do NOT notify partners—they should only receive updates for products IN the catalog.
 		if eventType != "delete" {
-			log.Printf("[WEBHOOK] Product %d: inCollection=false, wasInCollection=true (API lag)—treating as update, eventType=%q", payload.ID, eventType)
-			changes := detectProductChanges(shop, token, ver, productGID, eventType, payload, collHandle)
-			notifyPartners(productGID, eventType, payload, changes)
+			log.Printf("[WEBHOOK] Product %d: inCollection=false—skipping partner notification (not in catalog)", payload.ID)
 			w.WriteHeader(200)
 			w.Write([]byte("OK"))
 			return
 		}
-		// products/delete only: product was actually deleted
+		// products/delete only: product was actually deleted and was in catalog—notify removal
 		log.Printf("[COLLECTION CHANGE] Product %d (%s) REMOVED from Partner Catalog", payload.ID, payload.Handle)
 		notifyPartners(productGID, "collection_removed", payload, []string{"Product removed from Partner Catalog collection"})
 		productStateCache.Delete(productGID)
