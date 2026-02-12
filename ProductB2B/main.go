@@ -3137,28 +3137,20 @@ func handleProductWebhook(w http.ResponseWriter, r *http.Request, clientSecret, 
 
 	// Handle collection membership changes
 	if !inCollection && wasInCollection {
-		// Retry: Shopify API can lag when product is edited (e.g. price change); collection check may return stale false
-		for retry := 0; retry < 3 && !inCollection; retry++ {
-			time.Sleep(3 * time.Second)
-			inCollection, _ = isProductInCollection(shop, token, ver, productGID, collHandle)
-			if inCollection {
-				log.Printf("[WEBHOOK DEBUG] Product %d: Retry %d confirmed in collection (was transient API lag)", payload.ID, retry+1)
-				break
-			}
-		}
-		if inCollection {
-			// Treat as normal product update (e.g. price change), not removal
+		// products/update: Shopify API often returns stale "not in collection" when product is edited (price, description).
+		// Trust cache: if we had it in collection, treat as update—don't false-alarm "removed".
+		// Only trust "removed" on products/delete webhook.
+		if eventType == "update" {
+			log.Printf("[WEBHOOK] Product %d: inCollection=false but wasInCollection=true (API lag)—treating as update", payload.ID)
 			changes := detectProductChanges(shop, token, ver, productGID, eventType, payload, collHandle)
 			notifyPartners(productGID, eventType, payload, changes)
 			w.WriteHeader(200)
 			w.Write([]byte("OK"))
 			return
 		}
-		// Product was REMOVED from collection (or still appears removed after retries)
-		// Note: If you only changed price, your collection may be "automated" with rules—price changes can exclude products
+		// products/delete: product was actually deleted, so removal is real
 		log.Printf("[COLLECTION CHANGE] Product %d (%s) REMOVED from Partner Catalog", payload.ID, payload.Handle)
 		notifyPartners(productGID, "collection_removed", payload, []string{"Product removed from Partner Catalog collection"})
-		// Remove from cache since it's no longer in collection
 		productStateCache.Delete(productGID)
 		w.WriteHeader(200)
 		w.Write([]byte("OK"))
