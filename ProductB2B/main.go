@@ -3133,9 +3133,6 @@ func handleProductWebhook(w http.ResponseWriter, r *http.Request, clientSecret, 
 		prev := cached.(*ProductState)
 		wasInCollection = prev.InPartnerCatalog
 		hadPreviousState = true
-		log.Printf("[WEBHOOK DEBUG] Product %d: Previous state found in cache, wasInCollection=%v", payload.ID, wasInCollection)
-	} else {
-		log.Printf("[WEBHOOK DEBUG] Product %d: No previous state in cache (first time seeing this product)", payload.ID)
 	}
 
 	// Check if product is currently in Partner Catalog collection
@@ -3147,14 +3144,10 @@ func handleProductWebhook(w http.ResponseWriter, r *http.Request, clientSecret, 
 		return
 	}
 
-	log.Printf("[WEBHOOK DEBUG] Product %d: Current collection membership check: inCollection=%v, wasInCollection=%v, hadPreviousState=%v",
-		payload.ID, inCollection, wasInCollection, hadPreviousState)
-
 	// Handle: product not in collection (inCollection=false)
 	if !inCollection {
 		if !wasInCollection {
-			// Product was never in catalog and still isn't—never notify
-			log.Printf("[WEBHOOK] Product %d: not in catalog, was never in catalog—skipping", payload.ID)
+			// Product was never in catalog—no notification, no log
 			w.WriteHeader(200)
 			w.Write([]byte("OK"))
 			return
@@ -3170,8 +3163,7 @@ func handleProductWebhook(w http.ResponseWriter, r *http.Request, clientSecret, 
 			return
 		}
 		// products/update: API often returns stale inCollection=false after an edit (API lag).
-		// Trust cache—product is in catalog. Notify partners, but filter out false "Product removed".
-		log.Printf("[WEBHOOK] Product %d: inCollection=false, wasInCollection=true (API lag)—notifying partners", payload.ID)
+		// Trust cache—product is in catalog. Notify partners, filter out false "Product removed".
 		changes := detectProductChanges(shop, token, ver, productGID, eventType, payload, collHandle)
 		filtered := make([]string, 0, len(changes))
 		for _, c := range changes {
