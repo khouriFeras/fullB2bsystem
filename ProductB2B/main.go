@@ -3115,8 +3115,8 @@ func handleProductWebhook(w http.ResponseWriter, r *http.Request, clientSecret, 
 	var wasInCollection bool
 	var hadPreviousState bool
 	if cached, ok := productStateCache.Load(productGID); ok {
-		previousState := cached.(*ProductState)
-		wasInCollection = previousState.InPartnerCatalog
+		prev := cached.(*ProductState)
+		wasInCollection = prev.InPartnerCatalog
 		hadPreviousState = true
 		log.Printf("[WEBHOOK DEBUG] Product %d: Previous state found in cache, wasInCollection=%v", payload.ID, wasInCollection)
 	} else {
@@ -3137,10 +3137,29 @@ func handleProductWebhook(w http.ResponseWriter, r *http.Request, clientSecret, 
 
 	// Handle collection membership changes
 	if !inCollection && wasInCollection {
-		// products/update: Product not in collection now. Could be: (a) API lag, (b) product was never in catalog.
-		// Either way: do NOT notify partners—they should only receive updates for products IN the catalog.
 		if eventType != "delete" {
-			log.Printf("[WEBHOOK] Product %d: inCollection=false—skipping partner notification (not in catalog)", payload.ID)
+			// products/update: API says not in collection but cache says it was. Likely API lag after an edit.
+			// Trust cache—product is in catalog. Notify partners of the actual changes, but filter out
+			// the false "Product removed" that detectProductChanges would add (it sees current=false).
+			log.Printf("[WEBHOOK] Product %d: inCollection=false, wasInCollection=true (API lag)—notifying partners of changes", payload.ID)
+			changes := detectProductChanges(shop, token, ver, productGID, eventType, payload, collHandle)
+			// Remove false "Product removed" — API lag makes us think it left the collection
+			filtered := make([]string, 0, len(changes))
+			for _, c := range changes {
+				if c != "Product removed from Partner Catalog collection" {
+					filtered = append(filtered, c)
+				}
+			}
+			if len(filtered) == 0 {
+				filtered = []string{"Product updated (no specific changes detected)"}
+			}
+			notifyPartners(productGID, eventType, payload, filtered)
+			// Override cache: detectProductChanges stored InPartnerCatalog=false (API lag). Keep it true.
+			if c, ok := productStateCache.Load(productGID); ok {
+				st := c.(*ProductState)
+				st.InPartnerCatalog = true
+				productStateCache.Store(productGID, st)
+			}
 			w.WriteHeader(200)
 			w.Write([]byte("OK"))
 			return
