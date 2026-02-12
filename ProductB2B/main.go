@@ -1108,6 +1108,7 @@ func main() {
 		type setupBody struct {
 			PublicBase string            `json:"public_base"`
 			Endpoints  map[string]string `json:"endpoints"`
+			Force      bool              `json:"force"`
 		}
 
 		var sb setupBody
@@ -1118,6 +1119,9 @@ func main() {
 				http.Error(w, "Invalid JSON body: "+err.Error(), 400)
 				return
 			}
+		}
+		if r.URL.Query().Get("force") == "1" || r.URL.Query().Get("force") == "true" {
+			sb.Force = true
 		}
 
 		publicBase := strings.TrimRight(sb.PublicBase, "/")
@@ -1145,6 +1149,12 @@ func main() {
 			if strings.TrimSpace(v) != "" {
 				endpoints[k] = v
 			}
+		}
+
+		// If force=true: delete existing webhooks for our topics, then re-create
+		if sb.Force {
+			deleted, _ := deleteWebhooksForTopics(shop, token, ver, topics)
+			log.Printf("[WEBHOOK SETUP] Force mode: deleted %d existing webhook(s)", deleted)
 		}
 
 		results := make([]map[string]interface{}, 0, len(topics))
@@ -3809,6 +3819,80 @@ func detectVariantChanges(oldVariants, newVariants []VariantState) []string {
 	}
 
 	return changes
+}
+
+// deleteWebhooksForTopics lists and deletes all webhook subscriptions for the given topics.
+// Returns the number of webhooks deleted.
+func deleteWebhooksForTopics(shop, token, ver string, topics []string) (int, error) {
+	// Query webhooks for our topics (Shopify uses topics filter)
+	query := `query WebhookList($topics: [WebhookSubscriptionTopic!]) {
+		webhookSubscriptions(first: 50, topics: $topics) {
+			edges { node { id topic } }
+		}
+	}`
+	req := gqlReq{
+		Query: query,
+		Variables: map[string]interface{}{
+			"topics": topics,
+		},
+	}
+	raw, err := shopifyGraphQL(shop, token, ver, req)
+	if err != nil {
+		return 0, err
+	}
+	var qResp struct {
+		Data struct {
+			Subs struct {
+				Edges []struct {
+					Node struct {
+						ID    string `json:"id"`
+						Topic string `json:"topic"`
+					} `json:"node"`
+				} `json:"edges"`
+			} `json:"webhookSubscriptions"`
+		} `json:"data"`
+		Errors []struct{ Message string } `json:"errors"`
+	}
+	if err := json.Unmarshal(raw, &qResp); err != nil {
+		return 0, err
+	}
+	if len(qResp.Errors) > 0 {
+		return 0, fmt.Errorf("graphql: %s", qResp.Errors[0].Message)
+	}
+	deleted := 0
+	for _, edge := range qResp.Data.Subs.Edges {
+		id := edge.Node.ID
+		if id == "" {
+			continue
+		}
+		mutation := `mutation WebhookDelete($id: ID!) {
+			webhookSubscriptionDelete(id: $id) {
+				deletedWebhookSubscriptionId
+				userErrors { message }
+			}
+		}`
+		delReq := gqlReq{
+			Query: mutation,
+			Variables: map[string]interface{}{"id": id},
+		}
+		delRaw, err := shopifyGraphQL(shop, token, ver, delReq)
+		if err != nil {
+			log.Printf("[WEBHOOK] Failed to delete %s: %v", id, err)
+			continue
+		}
+		var delResp struct {
+			Data struct {
+				Delete struct {
+					DeletedID string `json:"deletedWebhookSubscriptionId"`
+					UserErrs  []struct{ Message string } `json:"userErrors"`
+				} `json:"webhookSubscriptionDelete"`
+			} `json:"data"`
+		}
+		if json.Unmarshal(delRaw, &delResp) == nil && delResp.Data.Delete.DeletedID != "" {
+			deleted++
+		}
+	}
+	return deleted, nil
 }
 
 // ensureWebhook creates a webhook subscription in Shopify via GraphQL
