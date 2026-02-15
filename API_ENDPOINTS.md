@@ -729,6 +729,20 @@ http://localhost:3000/auth?shop=YOURSTORE.myshopify.com
 
 ---
 
+## 11. GetDeliveryStatus (port 5000)
+
+**What it does:** Delivery status service. Used by OrderB2bAPI for `GET /v1/orders/:id/delivery-status`. Exposes outbound lookup (Wassel API) and **inbound webhook** from Wassel.
+
+| Method | Path                       | Auth                    | Description |
+|--------|----------------------------|-------------------------|-------------|
+| GET    | `/health`                  | No                      | Health check |
+| GET    | `/shipment`                | No                      | Query by `reference_id` or `awb` (outbound Wassel API) |
+| POST   | `/webhooks/wassel/status`  | Bearer WASSEL_SHARED_SECRET | Inbound webhook: single event or bulk `events` array |
+
+**Webhook (Wassel → you):** `Content-Type: application/json`, `Authorization: Bearer <WASSEL_SHARED_SECRET>`. Success: `200` with `{ "ok": true }`. Required per event: `event_id`, `waybill`, `status.code`, `occurred_at`.
+
+---
+
 # Quick reference table
 
 ## OrderB2bAPI (port 8081)
@@ -738,8 +752,17 @@ http://localhost:3000/auth?shop=YOURSTORE.myshopify.com
 | GET    | `/health`              | No     | Health check |
 | GET    | `/v1/catalog/products` | Partner | Partner’s catalog (paginated) |
 | POST   | `/v1/carts/submit`     | Partner + Idempotency-Key | Submit cart / create order |
-| GET    | `/v1/orders/:id`       | Partner | Get order by UUID or partner_order_id |
+| GET    | `/v1/orders/:id`           | Partner | Get order by UUID or partner_order_id |
+| GET    | `/v1/orders/:id/delivery-status` | Partner | Delivery/shipment status (via GetDeliveryStatus) |
 | GET    | `/v1/admin/orders`     | Partner | List partner’s orders |
+
+## GetDeliveryStatus (port 5000)
+
+| Method | Path                       | Auth   | Description |
+|--------|----------------------------|--------|-------------|
+| GET    | `/health`                  | No     | Health check |
+| GET    | `/shipment`                | No     | Lookup by reference_id or awb |
+| POST   | `/webhooks/wassel/status`  | Bearer | Inbound Wassel status webhook |
 
 ## ProductB2B (port 3000)
 

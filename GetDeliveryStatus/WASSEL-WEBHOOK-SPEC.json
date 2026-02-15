@@ -1,0 +1,88 @@
+{
+  "title": "JafarShop – How we want to receive delivery status from Wassel",
+  "version": "1.0",
+  "webhook": {
+    "method": "POST",
+    "urls": {
+      "production": "https://webhooks.jafarshop.com/webhooks/wassel/status",
+      "uat": "https://YOUR-UAT-DOMAIN.com/webhooks/wassel/status"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer <WASSEL_SHARED_SECRET>"
+    },
+    "success_response": {
+      "status_code": 200,
+      "body": { "ok": true }
+    },
+    "error_responses": {
+      "401": "Missing or invalid Authorization header",
+      "400": "Invalid JSON or missing required fields (see required_fields)",
+      "503": "Webhook not configured"
+    }
+  },
+  "required_fields_per_event": [
+    "event_id (string, unique per update)",
+    "waybill (string)",
+    "status.code (string)",
+    "occurred_at (string, ISO-8601 datetime, e.g. 2026-02-15T10:22:31+03:00)"
+  ],
+  "optional_fields": [
+    "order_ref (string – we use Shopify order id with you)",
+    "status.name_en (string)",
+    "status.name_ar (string)",
+    "location.city (string)",
+    "location.area (string)",
+    "location.country (string, e.g. JO)",
+    "note (string)"
+  ],
+  "allowed_status_codes": [
+    "CREATED",
+    "PICKED_UP",
+    "IN_TRANSIT",
+    "ARRIVED_AT_HUB",
+    "OUT_FOR_DELIVERY",
+    "DELIVERED",
+    "DELIVERY_FAILED",
+    "CANCELED",
+    "RETURNED"
+  ],
+  "payload_examples": {
+    "single_event": {
+      "event_id": "ws_9f3b1c2a-1d6c-4c8a-9ef1-9a2e8f1a0d01",
+      "waybill": "WAS123456789",
+      "order_ref": "JS-100245",
+      "status": {
+        "code": "OUT_FOR_DELIVERY",
+        "name_en": "Out for delivery",
+        "name_ar": "خرج للتسليم"
+      },
+      "occurred_at": "2026-02-15T10:22:31+03:00",
+      "location": {
+        "city": "Amman",
+        "area": "Khalda",
+        "country": "JO"
+      },
+      "note": "Courier assigned"
+    },
+    "bulk_events": {
+      "waybill": "WAS123456789",
+      "order_ref": "JS-100245",
+      "events": [
+        {
+          "event_id": "ws_001",
+          "status": { "code": "PICKED_UP", "name_en": "Picked up", "name_ar": "تم الاستلام" },
+          "occurred_at": "2026-02-14T16:10:00+03:00",
+          "location": { "city": "Amman", "country": "JO" }
+        },
+        {
+          "event_id": "ws_002",
+          "status": { "code": "OUT_FOR_DELIVERY", "name_en": "Out for delivery", "name_ar": "خرج للتسليم" },
+          "occurred_at": "2026-02-15T10:22:31+03:00",
+          "location": { "city": "Amman", "country": "JO" }
+        }
+      ]
+    }
+  },
+  "note_to_wassel": "Please confirm if you will send one event per webhook or full events array, and share your status codes list so we can map them."
+}
