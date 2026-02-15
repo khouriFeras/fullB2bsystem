@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +19,18 @@ import (
 )
 
 const deliveryStatusTimeout = 15 * time.Second
+
+// internalDeliveryWebhookBody is the payload from GetDeliveryStatus (forwarded from Wassel).
+type internalDeliveryWebhookBody struct {
+	ItemReferenceNo     string `json:"ItemReferenceNo"`
+	ItemReferenceNoAlt  string `json:"itemReferenceNo"`
+	Status              *int   `json:"Status"`
+	StatusAlt            *int   `json:"status"`
+	Waybill             string `json:"Waybill"`
+	WaybillAlt          string `json:"waybill"`
+	DeliveryImageUrl    string `json:"DeliveryImageUrl"`
+	DeliveryImageUrlAlt string `json:"delivery_image_url"`
+}
 
 // HandleGetOrderDeliveryStatus handles GET /v1/orders/:id/delivery-status
 // Partner identifies order by :id (partner_order_id or supplier order UUID).
@@ -152,5 +165,91 @@ func HandleGetOrderDeliveryStatus(cfg *config.Config, repos *repository.Reposito
 			}
 			go service.NotifyDeliveryUpdate(*partner.WebhookURL, webhookPayload, logger)
 		}
+	}
+}
+
+// HandleInternalDeliveryWebhook handles POST /internal/webhooks/delivery from GetDeliveryStatus.
+// Looks up order by ItemReferenceNo (Shopify order id), finds partner, and if partner has webhook_url
+// sends the delivery update only to that partner.
+func HandleInternalDeliveryWebhook(cfg *config.Config, repos *repository.Repositories, logger *zap.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		secret := cfg.DeliveryWebhookSecret
+		if secret == "" {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "internal webhook not configured"})
+			return
+		}
+		auth := c.GetHeader("Authorization")
+		token := ""
+		if strings.HasPrefix(strings.TrimSpace(auth), "Bearer ") {
+			token = strings.TrimSpace(auth[7:])
+		}
+		if token != secret {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+
+		var body internalDeliveryWebhookBody
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON", "details": err.Error()})
+			return
+		}
+		itemRef := body.ItemReferenceNo
+		if itemRef == "" {
+			itemRef = body.ItemReferenceNoAlt
+		}
+		if itemRef == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ItemReferenceNo required"})
+			return
+		}
+		status := 0
+		if body.Status != nil {
+			status = *body.Status
+		} else if body.StatusAlt != nil {
+			status = *body.StatusAlt
+		}
+		waybill := body.Waybill
+		if waybill == "" {
+			waybill = body.WaybillAlt
+		}
+		deliveryImageURL := body.DeliveryImageUrl
+		if deliveryImageURL == "" {
+			deliveryImageURL = body.DeliveryImageUrlAlt
+		}
+
+		order, err := repos.SupplierOrder.GetByShopifyOrderID(c.Request.Context(), strings.TrimSpace(itemRef))
+		if err != nil {
+			if _, ok := err.(*errors.ErrNotFound); ok {
+				logger.Info("Internal delivery webhook: no order for ItemReferenceNo", zap.String("item_reference_no", itemRef))
+			} else {
+				logger.Warn("Internal delivery webhook: lookup failed", zap.String("item_reference_no", itemRef), zap.Error(err))
+			}
+			c.JSON(http.StatusOK, gin.H{"ok": true})
+			return
+		}
+
+		partner, err := repos.Partner.GetByID(c.Request.Context(), order.PartnerID)
+		if err != nil {
+			logger.Warn("Internal delivery webhook: partner lookup failed", zap.String("order_id", order.ID.String()), zap.Error(err))
+			c.JSON(http.StatusOK, gin.H{"ok": true})
+			return
+		}
+
+		if partner.WebhookURL == nil || *partner.WebhookURL == "" {
+			c.JSON(http.StatusOK, gin.H{"ok": true})
+			return
+		}
+
+		webhookPayload := map[string]interface{}{
+			"partner_id":        partner.ID.String(),
+			"order_id":          order.ID.String(),
+			"partner_order_id":  order.PartnerOrderID,
+			"event":             "delivery_status",
+			"status":            status,
+			"waybill":           waybill,
+			"delivery_image_url": deliveryImageURL,
+			"shipping_address":  order.ShippingAddress,
+		}
+		go service.NotifyDeliveryUpdate(*partner.WebhookURL, webhookPayload, logger)
+		c.JSON(http.StatusOK, gin.H{"ok": true})
 	}
 }

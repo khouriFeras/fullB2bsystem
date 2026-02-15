@@ -135,5 +135,5 @@
       "delivery_image_url": "https://example.com/proof/abc123.jpg"
     }
   },
-  "note_to_wassel": "We accept your native format: ItemReferenceNo + Status (integer), one event per webhook. Please send DeliveryImageUrl when Status is 170 (delivered)."
+  "note_to_wassel": " Please send Delivery ImageUrl when Status is 170 (delivered)."
 }

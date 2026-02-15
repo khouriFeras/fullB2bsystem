@@ -9,14 +9,15 @@ import (
 )
 
 type Config struct {
-	Port             string
-	Environment      string
-	Database         DatabaseConfig
-	Shopify          ShopifyConfig
-	ProductB2B       ProductB2BConfig
-	GetDeliveryStatus GetDeliveryStatusConfig
-	API              APIConfig
-	LogLevel         string
+	Port                  string
+	Environment           string
+	Database              DatabaseConfig
+	Shopify               ShopifyConfig
+	ProductB2B            ProductB2BConfig
+	GetDeliveryStatus     GetDeliveryStatusConfig
+	API                   APIConfig
+	LogLevel              string
+	DeliveryWebhookSecret string // DELIVERY_WEBHOOK_SECRET: auth for POST /internal/webhooks/delivery from GetDeliveryStatus
 }
 
 // GetDeliveryStatusConfig is used to call GetDeliveryStatus (Wassel) for shipment/delivery status
@@ -100,7 +101,8 @@ func Load() (*Config, error) {
 		API: APIConfig{
 			KeyHashSalt: getEnvOrViper("API_KEY_HASH_SALT", "default-salt-change-in-production"),
 		},
-		LogLevel: getEnvOrViper("LOG_LEVEL", "info"),
+		LogLevel:              getEnvOrViper("LOG_LEVEL", "info"),
+		DeliveryWebhookSecret: strings.TrimSpace(getEnvOrViper("DELIVERY_WEBHOOK_SECRET", "")),
 	}
 
 	// Validate required fields

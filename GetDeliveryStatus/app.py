@@ -3,9 +3,13 @@ Minimal Flask app for delivery status. Used by OrderB2bAPI (HTTP).
 Loads .env from this directory (GetDeliveryStatus) for Wassel credentials.
 - GET /shipment: outbound call to Wassel API (pull).
 - POST /webhooks/wassel/status: inbound webhook from Wassel (push); Bearer auth.
+  On accept, forwards to OrderB2bAPI /internal/webhooks/delivery so the partner can be notified.
 """
 import os
+import logging
 from flask import Flask, request, jsonify
+
+import requests
 
 # Load .env from GetDeliveryStatus directory
 try:
@@ -20,6 +24,26 @@ from connect import get_shipment_details
 app = Flask(__name__)
 
 # --- Wassel inbound webhook helpers ---
+
+def _forward_to_order_b2b_api(payload):
+    """
+    POST the delivery payload to OrderB2bAPI internal webhook so it can notify the partner.
+    Only forwards if ORDER_B2B_API_URL and DELIVERY_WEBHOOK_SECRET are set.
+    Always returns None; logs on failure. Caller should still return 200 to Wassel.
+    """
+    base_url = os.environ.get("ORDER_B2B_API_URL") or os.environ.get("ORDER_B2B_API_INTERNAL_URL")
+    secret = os.environ.get("DELIVERY_WEBHOOK_SECRET")
+    if not (base_url and str(base_url).strip() and secret and str(secret).strip()):
+        return
+    url = f"{base_url.rstrip('/')}/internal/webhooks/delivery"
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {secret}"}
+    try:
+        r = requests.post(url, json=payload, headers=headers, timeout=5)
+        if r.status_code >= 400:
+            logging.warning("OrderB2bAPI delivery webhook returned %s: %s", r.status_code, r.text[:500])
+    except Exception as e:
+        logging.warning("OrderB2bAPI delivery webhook request failed: %s", e)
+
 
 def _get_bearer_token():
     """Extract Bearer token from Authorization header. Returns None if missing or invalid format."""
@@ -185,6 +209,7 @@ def webhook_wassel_status():
     # Prefer Wassel's native format (ItemReferenceNo + Status)
     err = _validate_wassel_format(payload)
     if err is None:
+        _forward_to_order_b2b_api(payload)
         return jsonify({"ok": True}), 200
     # Fallback: extended format (event_id, waybill, status.code, occurred_at)
     events, _waybill, _order_ref, err_ext = _normalize_events(payload)

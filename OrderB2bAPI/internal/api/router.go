@@ -30,6 +30,9 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories, logger *zap.L
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
+	// Internal webhook: GetDeliveryStatus forwards Wassel delivery events here
+	router.POST("/internal/webhooks/delivery", handlers.HandleInternalDeliveryWebhook(cfg, repos, logger))
+
 	// API v1 routes
 	v1 := router.Group("/v1")
 	{

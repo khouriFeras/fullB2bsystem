@@ -254,6 +254,96 @@ func (r *supplierOrderRepository) GetByPartnerIDAndPartnerOrderID(ctx context.Co
 	return &order, nil
 }
 
+func (r *supplierOrderRepository) GetByShopifyOrderID(ctx context.Context, shopifyOrderID string) (*domain.SupplierOrder, error) {
+	if shopifyOrderID == "" {
+		return nil, &errors.ErrNotFound{Resource: "supplier_order", ID: "shopify_order_id empty"}
+	}
+	query := `
+		SELECT id, partner_id, partner_order_id, status, shopify_draft_order_id, shopify_order_id,
+			customer_name, customer_phone, shipping_address, cart_total,
+			payment_status, payment_method, rejection_reason, tracking_carrier, tracking_number,
+			tracking_url, created_at, updated_at
+		FROM supplier_orders
+		WHERE shopify_order_id = $1
+		LIMIT 1
+	`
+
+	var order domain.SupplierOrder
+	var shippingAddressJSON []byte
+	var shopifyDraftOrderID sql.NullInt64
+	var shopifyOrderIDVal sql.NullString
+	var customerPhone sql.NullString
+	var paymentStatus sql.NullString
+	var paymentMethod sql.NullString
+	var rejectionReason sql.NullString
+	var trackingCarrier sql.NullString
+	var trackingNumber sql.NullString
+	var trackingURL sql.NullString
+
+	err := r.db.QueryRowContext(ctx, query, shopifyOrderID).Scan(
+		&order.ID,
+		&order.PartnerID,
+		&order.PartnerOrderID,
+		&order.Status,
+		&shopifyDraftOrderID,
+		&shopifyOrderIDVal,
+		&order.CustomerName,
+		&customerPhone,
+		&shippingAddressJSON,
+		&order.CartTotal,
+		&paymentStatus,
+		&paymentMethod,
+		&rejectionReason,
+		&trackingCarrier,
+		&trackingNumber,
+		&trackingURL,
+		&order.CreatedAt,
+		&order.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, &errors.ErrNotFound{Resource: "supplier_order", ID: shopifyOrderID}
+	}
+	if err != nil {
+		r.logger.Error("Failed to get supplier order by Shopify order ID", zap.Error(err), zap.String("shopify_order_id", shopifyOrderID))
+		return nil, err
+	}
+
+	if shopifyDraftOrderID.Valid {
+		order.ShopifyDraftOrderID = &shopifyDraftOrderID.Int64
+	}
+	if shopifyOrderIDVal.Valid {
+		order.ShopifyOrderID = &shopifyOrderIDVal.String
+	}
+	if customerPhone.Valid {
+		order.CustomerPhone = customerPhone.String
+	}
+	if paymentStatus.Valid {
+		order.PaymentStatus = paymentStatus.String
+	}
+	if paymentMethod.Valid {
+		order.PaymentMethod = &paymentMethod.String
+	}
+	if rejectionReason.Valid {
+		order.RejectionReason = &rejectionReason.String
+	}
+	if trackingCarrier.Valid {
+		order.TrackingCarrier = &trackingCarrier.String
+	}
+	if trackingNumber.Valid {
+		order.TrackingNumber = &trackingNumber.String
+	}
+	if trackingURL.Valid {
+		order.TrackingURL = &trackingURL.String
+	}
+
+	if err := json.Unmarshal(shippingAddressJSON, &order.ShippingAddress); err != nil {
+		return nil, err
+	}
+
+	return &order, nil
+}
+
 func (r *supplierOrderRepository) Update(ctx context.Context, order *domain.SupplierOrder) error {
 	query := `
 		UPDATE supplier_orders

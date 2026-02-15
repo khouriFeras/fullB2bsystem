@@ -51,6 +51,8 @@ services:
       - "5000:5000"
     environment:
       PORT: "5000"
+      ORDER_B2B_API_URL: http://orderb2bapi:8080
+      DELIVERY_WEBHOOK_SECRET: ${DELIVERY_WEBHOOK_SECRET}
     env_file:
       - ./GetDeliveryStatus/.env
     restart: unless-stopped
@@ -70,6 +72,7 @@ services:
       # When both run in Docker, orderb2bapi reaches ProductB2B by service name
       PRODUCT_B2B_URL: http://productb2b:3000
       GET_DELIVERY_STATUS_URL: http://getdeliverystatus:5000
+      DELIVERY_WEBHOOK_SECRET: ${DELIVERY_WEBHOOK_SECRET}
     depends_on:
       productb2b:
         condition: service_started
