@@ -32,6 +32,29 @@ def _get_bearer_token():
     return None
 
 
+def _validate_wassel_format(payload):
+    """
+    Validate Wassel's native format: ItemReferenceNo (string), Status (integer).
+    Accepts ItemReferenceNo or itemReferenceNo, Status or status (casing may vary).
+    Returns None if valid, else error message string.
+    """
+    if not isinstance(payload, dict):
+        return "Body must be a JSON object"
+    ref = payload.get("ItemReferenceNo") or payload.get("itemReferenceNo")
+    if ref is None:
+        return "ItemReferenceNo is required"
+    if not str(ref).strip():
+        return "ItemReferenceNo must be non-empty"
+    status = payload.get("Status") or payload.get("status")
+    if status is None:
+        return "Status is required"
+    try:
+        int(status)
+    except (TypeError, ValueError):
+        return "Status must be an integer"
+    return None
+
+
 def _validate_single_event(data, waybill_top=None, order_ref_top=None):
     """
     Validate a single event (from top-level payload or from events[]).
@@ -142,7 +165,8 @@ def shipment():
 @app.route("/webhooks/wassel/status", methods=["POST"])
 def webhook_wassel_status():
     """
-    Inbound webhook from Wassel: single status update or bulk events.
+    Inbound webhook from Wassel. We accept Wassel's native format (ItemReferenceNo + Status int)
+    or the extended format (event_id, waybill, status.code, occurred_at, etc.).
     Headers: Content-Type: application/json, Authorization: Bearer <WASSEL_SHARED_SECRET>
     Success: 200 OK with { "ok": true }
     """
@@ -158,10 +182,14 @@ def webhook_wassel_status():
         payload = request.get_json(force=True, silent=False)
     except Exception:
         return jsonify({"error": "invalid JSON body"}), 400
-    events, _waybill, _order_ref, err = _normalize_events(payload)
-    if err:
-        return jsonify({"error": err}), 400
-    # Minimal v1: accept and acknowledge only (no persistence yet)
+    # Prefer Wassel's native format (ItemReferenceNo + Status)
+    err = _validate_wassel_format(payload)
+    if err is None:
+        return jsonify({"ok": True}), 200
+    # Fallback: extended format (event_id, waybill, status.code, occurred_at)
+    events, _waybill, _order_ref, err_ext = _normalize_events(payload)
+    if err_ext:
+        return jsonify({"error": err or err_ext}), 400
     return jsonify({"ok": True}), 200
 
 

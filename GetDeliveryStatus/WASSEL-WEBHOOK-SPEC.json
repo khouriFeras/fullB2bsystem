@@ -4,8 +4,7 @@
   "webhook": {
     "method": "POST",
     "urls": {
-      "production": "https://webhooks.jafarshop.com/webhooks/wassel/status",
-      "uat": "https://YOUR-UAT-DOMAIN.com/webhooks/wassel/status"
+      "production": "https://webhooks.jafarshop.com/webhooks/wassel/status"
     },
     "headers": {
       "Content-Type": "application/json",
@@ -19,7 +18,44 @@
       "401": "Missing or invalid Authorization header",
       "400": "Invalid JSON or missing required fields (see required_fields)",
       "503": "Webhook not configured"
+    },
+    "retries_and_timeout": {
+      "timeout_seconds": 10,
+      "retries": "Please retry on 5xx or connection failure (e.g. 2–3 attempts with backoff). We respond within a few seconds."
     }
+  },
+  "accepted_format": "Wassel native: one event per webhook. ItemReferenceNo (string) + Status (integer). Optional: Waybill, DeliveryImageUrl, OccurredAt.",
+  "required_fields_wassel": [
+    "ItemReferenceNo (string – shipper reference / our order number)",
+    "Status (integer – see status_codes_wassel below)"
+  ],
+  "status_codes_wassel": {
+    "60": "Assign driver to pick up",
+    "100": "Picked up by driver",
+    "120": "Item stored in warehouse",
+    "130": "Out for delivery",
+    "170": "Delivered to customer",
+    "180": "Returned from customer",
+    "210": "Returned to shipper (RTO)",
+    "51": "Departed from origin – incoming",
+    "56": "Arrival to gateway – incoming",
+    "57": "Under clearance – incoming",
+    "58": "Customs released – incoming",
+    "121": "Departed to airport",
+    "123": "Departed from origin – outgoing",
+    "190": "Item returned to returned shelf"
+  },
+  "optional_fields_wassel": [
+    "Waybill (string)",
+    "DeliveryImageUrl (string – proof-of-delivery when Status is 170)",
+    "OccurredAt (string, ISO-8601)",
+    "Note (string)"
+  ],
+  "payload_example_wassel": {
+    "ItemReferenceNo": "12345",
+    "Status": 170,
+    "Waybill": "26020021000001",
+    "DeliveryImageUrl": "https://example.com/proof.jpg"
   },
   "required_fields_per_event": [
     "event_id (string, unique per update)",
@@ -34,7 +70,8 @@
     "location.city (string)",
     "location.area (string)",
     "location.country (string, e.g. JO)",
-    "note (string)"
+    "note (string)",
+    "delivery_image_url (string, single URL to proof-of-delivery image – please send when status is DELIVERED)"
   ],
   "allowed_status_codes": [
     "CREATED",
@@ -82,7 +119,21 @@
           "location": { "city": "Amman", "country": "JO" }
         }
       ]
+    },
+    "delivered_event_with_image": {
+      "event_id": "ws_delivered_001",
+      "waybill": "WAS123456789",
+      "order_ref": "JS-100245",
+      "status": {
+        "code": "DELIVERED",
+        "name_en": "Delivered",
+        "name_ar": "تم التسليم"
+      },
+      "occurred_at": "2026-02-16T14:00:00+03:00",
+      "location": { "city": "Amman", "area": "Khalda", "country": "JO" },
+      "note": "Signed by recipient",
+      "delivery_image_url": "https://example.com/proof/abc123.jpg"
     }
   },
-  "note_to_wassel": "Please confirm if you will send one event per webhook or full events array, and share your status codes list so we can map them."
+  "note_to_wassel": "We accept your native format: ItemReferenceNo + Status (integer), one event per webhook. Please send DeliveryImageUrl when Status is 170 (delivered)."
 }
