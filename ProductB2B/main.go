@@ -281,6 +281,15 @@ func main() {
 
 	// Menu path by SKU handler (registered early and at /menu-path-by-sku so it always matches)
 	handleMenuPathBySKU := func(w http.ResponseWriter, r *http.Request) {
+		// Require auth: service key or partner API key (same as catalog)
+		authHeader := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+		useServiceKey := serviceAPIKey != "" && authHeader != "" && authHeader == serviceAPIKey
+		if !useServiceKey && !authenticatePartner(r, partnerAPIKeys) {
+			w.Header().Set("WWW-Authenticate", "Bearer")
+			http.Error(w, "Unauthorized: Invalid or missing API key", 401)
+			return
+		}
+
 		sku := strings.TrimSpace(r.URL.Query().Get("sku"))
 		if sku == "" {
 			http.Error(w, "query param required: sku (e.g. ?sku=MK4820b)", 400)
