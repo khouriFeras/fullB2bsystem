@@ -37,6 +37,12 @@ type SupplierOrder struct {
 	TrackingCarrier     *string
 	TrackingNumber      *string
 	TrackingURL         *string
+	// Last delivery update from Wassel (internal webhook); visible via GET /v1/orders/:id/delivery-status even when partner has no webhook
+	LastDeliveryStatus        *int
+	LastDeliveryStatusLabel   *string
+	LastDeliveryWaybill      *string
+	LastDeliveryImageURL     *string
+	LastDeliveryAt           *time.Time
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }

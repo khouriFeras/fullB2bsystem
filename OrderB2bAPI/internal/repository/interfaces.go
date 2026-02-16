@@ -27,6 +27,7 @@ type SupplierOrderRepository interface {
 	Update(ctx context.Context, order *domain.SupplierOrder) error
 	UpdateStatus(ctx context.Context, id uuid.UUID, status domain.OrderStatus, rejectionReason *string) error
 	UpdateTracking(ctx context.Context, id uuid.UUID, carrier, trackingNumber, trackingURL *string) error
+	UpdateLastDeliveryStatus(ctx context.Context, id uuid.UUID, status int, statusLabel, waybill, imageURL string) error
 	UpdateShopifyDraftOrderID(ctx context.Context, id uuid.UUID, draftOrderID int64) error
 	UpdateShopifyOrderID(ctx context.Context, id uuid.UUID, orderID string) error
 	ListByPartnerID(ctx context.Context, partnerID uuid.UUID, limit, offset int) ([]*domain.SupplierOrder, error)
