@@ -241,28 +241,35 @@ func HandleInternalDeliveryWebhook(cfg *config.Config, repos *repository.Reposit
 			deliveryImageURL = body.DeliveryImageUrlAlt
 		}
 		statusLabel := wasselStatusLabel(status)
+		itemRefTrim := strings.TrimSpace(itemRef)
 
-		order, err := repos.SupplierOrder.GetByShopifyOrderID(c.Request.Context(), strings.TrimSpace(itemRef))
+		order, err := repos.SupplierOrder.GetByShopifyOrderID(c.Request.Context(), itemRefTrim)
 		if err != nil {
 			if _, ok := err.(*errors.ErrNotFound); ok {
-				logger.Info("Internal delivery webhook: no order for ItemReferenceNo", zap.String("item_reference_no", itemRef))
-				c.JSON(http.StatusOK, gin.H{
-					"ok":      true,
-					"status":  "not_found",
-					"message": "no order for ItemReferenceNo",
-					"shipment": gin.H{
-						"status":             status,
-						"status_label":       statusLabel,
-						"waybill":            waybill,
-						"delivery_image_url": deliveryImageURL,
-						"item_reference_no":  itemRef,
-					},
-				})
-			} else {
-				logger.Warn("Internal delivery webhook: lookup failed", zap.String("item_reference_no", itemRef), zap.Error(err))
-				c.JSON(http.StatusOK, gin.H{"ok": true, "status": "error", "message": "order lookup failed"})
+				// Fallback: treat ItemReferenceNo as partner_order_id (e.g. test-order-5006 or external ref)
+				order, err = repos.SupplierOrder.GetByPartnerOrderID(c.Request.Context(), itemRefTrim)
 			}
-			return
+			if err != nil {
+				if _, ok := err.(*errors.ErrNotFound); ok {
+					logger.Info("Internal delivery webhook: no order for ItemReferenceNo (tried shopify_order_id and partner_order_id)", zap.String("item_reference_no", itemRef))
+					c.JSON(http.StatusOK, gin.H{
+						"ok":      true,
+						"status":  "not_found",
+						"message": "no order for ItemReferenceNo",
+						"shipment": gin.H{
+							"status":             status,
+							"status_label":       statusLabel,
+							"waybill":            waybill,
+							"delivery_image_url": deliveryImageURL,
+							"item_reference_no":  itemRef,
+						},
+					})
+				} else {
+					logger.Warn("Internal delivery webhook: lookup failed", zap.String("item_reference_no", itemRef), zap.Error(err))
+					c.JSON(http.StatusOK, gin.H{"ok": true, "status": "error", "message": "order lookup failed"})
+				}
+				return
+			}
 		}
 
 		partner, err := repos.Partner.GetByID(c.Request.Context(), order.PartnerID)
