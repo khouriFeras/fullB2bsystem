@@ -90,6 +90,43 @@ func HandleGetOrderDeliveryStatus(cfg *config.Config, repos *repository.Reposito
 			return
 		}
 
+		// Return stored last delivery status from webhook when we have it (no need to call GetDeliveryStatus)
+		if order.LastDeliveryStatus != nil || order.LastDeliveryAt != nil {
+			statusVal := 0
+			if order.LastDeliveryStatus != nil {
+				statusVal = *order.LastDeliveryStatus
+			}
+			label := ""
+			if order.LastDeliveryStatusLabel != nil {
+				label = *order.LastDeliveryStatusLabel
+			}
+			waybill := ""
+			if order.LastDeliveryWaybill != nil {
+				waybill = *order.LastDeliveryWaybill
+			}
+			imgURL := ""
+			if order.LastDeliveryImageURL != nil {
+				imgURL = *order.LastDeliveryImageURL
+			}
+			var at *string
+			if order.LastDeliveryAt != nil {
+				s := order.LastDeliveryAt.Format("2006-01-02T15:04:05Z07:00")
+				at = &s
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"event":   "delivery_status",
+				"source":  "stored",
+				"shipment": gin.H{
+					"status":             statusVal,
+					"status_label":       label,
+					"waybill":            waybill,
+					"delivery_image_url": imgURL,
+					"updated_at":         at,
+				},
+			})
+			return
+		}
+
 		baseURL := cfg.GetDeliveryStatus.BaseURL
 		if baseURL == "" {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "delivery status service is not configured"})
@@ -271,6 +308,9 @@ func HandleInternalDeliveryWebhook(cfg *config.Config, repos *repository.Reposit
 				return
 			}
 		}
+
+		// Store last delivery status on the order (so we can show it via GET delivery-status even when partner has no webhook)
+		_ = repos.SupplierOrder.UpdateLastDeliveryStatus(c.Request.Context(), order.ID, status, statusLabel, waybill, deliveryImageURL)
 
 		partner, err := repos.Partner.GetByID(c.Request.Context(), order.PartnerID)
 		if err != nil {

@@ -400,7 +400,8 @@ func (r *supplierOrderRepository) GetByShopifyOrderID(ctx context.Context, shopi
 		SELECT id, partner_id, partner_order_id, status, shopify_draft_order_id, shopify_order_id,
 			customer_name, customer_phone, shipping_address, cart_total,
 			payment_status, payment_method, rejection_reason, tracking_carrier, tracking_number,
-			tracking_url, created_at, updated_at
+			tracking_url, last_delivery_status, last_delivery_status_label, last_delivery_waybill, last_delivery_image_url, last_delivery_at,
+			created_at, updated_at
 		FROM supplier_orders
 		WHERE shopify_order_id = $1
 		LIMIT 1
@@ -417,6 +418,11 @@ func (r *supplierOrderRepository) GetByShopifyOrderID(ctx context.Context, shopi
 	var trackingCarrier sql.NullString
 	var trackingNumber sql.NullString
 	var trackingURL sql.NullString
+	var lastDeliveryStatus sql.NullInt64
+	var lastDeliveryStatusLabel sql.NullString
+	var lastDeliveryWaybill sql.NullString
+	var lastDeliveryImageURL sql.NullString
+	var lastDeliveryAt sql.NullTime
 
 	err := r.db.QueryRowContext(ctx, query, shopifyOrderID).Scan(
 		&order.ID,
@@ -435,6 +441,11 @@ func (r *supplierOrderRepository) GetByShopifyOrderID(ctx context.Context, shopi
 		&trackingCarrier,
 		&trackingNumber,
 		&trackingURL,
+		&lastDeliveryStatus,
+		&lastDeliveryStatusLabel,
+		&lastDeliveryWaybill,
+		&lastDeliveryImageURL,
+		&lastDeliveryAt,
 		&order.CreatedAt,
 		&order.UpdatedAt,
 	)
@@ -473,6 +484,22 @@ func (r *supplierOrderRepository) GetByShopifyOrderID(ctx context.Context, shopi
 	}
 	if trackingURL.Valid {
 		order.TrackingURL = &trackingURL.String
+	}
+	if lastDeliveryStatus.Valid {
+		s := int(lastDeliveryStatus.Int64)
+		order.LastDeliveryStatus = &s
+	}
+	if lastDeliveryStatusLabel.Valid {
+		order.LastDeliveryStatusLabel = &lastDeliveryStatusLabel.String
+	}
+	if lastDeliveryWaybill.Valid {
+		order.LastDeliveryWaybill = &lastDeliveryWaybill.String
+	}
+	if lastDeliveryImageURL.Valid {
+		order.LastDeliveryImageURL = &lastDeliveryImageURL.String
+	}
+	if lastDeliveryAt.Valid {
+		order.LastDeliveryAt = &lastDeliveryAt.Time
 	}
 
 	if err := json.Unmarshal(shippingAddressJSON, &order.ShippingAddress); err != nil {
@@ -609,7 +636,8 @@ func (r *supplierOrderRepository) ListByPartnerID(ctx context.Context, partnerID
 		SELECT id, partner_id, partner_order_id, status, shopify_draft_order_id, shopify_order_id,
 			customer_name, customer_phone, shipping_address, cart_total,
 			payment_status, payment_method, rejection_reason, tracking_carrier, tracking_number,
-			tracking_url, created_at, updated_at
+			tracking_url, last_delivery_status, last_delivery_status_label, last_delivery_waybill, last_delivery_image_url, last_delivery_at,
+			created_at, updated_at
 		FROM supplier_orders
 		WHERE partner_id = $1
 		ORDER BY created_at DESC
@@ -640,7 +668,8 @@ func (r *supplierOrderRepository) ListByPartnerIDAndStatus(ctx context.Context, 
 		SELECT id, partner_id, partner_order_id, status, shopify_draft_order_id, shopify_order_id,
 			customer_name, customer_phone, shipping_address, cart_total,
 			payment_status, payment_method, rejection_reason, tracking_carrier, tracking_number,
-			tracking_url, created_at, updated_at
+			tracking_url, last_delivery_status, last_delivery_status_label, last_delivery_waybill, last_delivery_image_url, last_delivery_at,
+			created_at, updated_at
 		FROM supplier_orders
 		WHERE partner_id = $1 AND status = $2
 		ORDER BY created_at DESC
@@ -671,7 +700,8 @@ func (r *supplierOrderRepository) ListByStatus(ctx context.Context, status domai
 		SELECT id, partner_id, partner_order_id, status, shopify_draft_order_id, shopify_order_id,
 			customer_name, customer_phone, shipping_address, cart_total,
 			payment_status, payment_method, rejection_reason, tracking_carrier, tracking_number,
-			tracking_url, created_at, updated_at
+			tracking_url, last_delivery_status, last_delivery_status_label, last_delivery_waybill, last_delivery_image_url, last_delivery_at,
+			created_at, updated_at
 		FROM supplier_orders
 		WHERE status = $1
 		ORDER BY created_at DESC
@@ -709,6 +739,11 @@ func (r *supplierOrderRepository) scanOrder(rows *sql.Rows) (*domain.SupplierOrd
 	var trackingCarrier sql.NullString
 	var trackingNumber sql.NullString
 	var trackingURL sql.NullString
+	var lastDeliveryStatus sql.NullInt64
+	var lastDeliveryStatusLabel sql.NullString
+	var lastDeliveryWaybill sql.NullString
+	var lastDeliveryImageURL sql.NullString
+	var lastDeliveryAt sql.NullTime
 
 	err := rows.Scan(
 		&order.ID,
@@ -727,6 +762,11 @@ func (r *supplierOrderRepository) scanOrder(rows *sql.Rows) (*domain.SupplierOrd
 		&trackingCarrier,
 		&trackingNumber,
 		&trackingURL,
+		&lastDeliveryStatus,
+		&lastDeliveryStatusLabel,
+		&lastDeliveryWaybill,
+		&lastDeliveryImageURL,
+		&lastDeliveryAt,
 		&order.CreatedAt,
 		&order.UpdatedAt,
 	)
@@ -761,6 +801,22 @@ func (r *supplierOrderRepository) scanOrder(rows *sql.Rows) (*domain.SupplierOrd
 	}
 	if trackingURL.Valid {
 		order.TrackingURL = &trackingURL.String
+	}
+	if lastDeliveryStatus.Valid {
+		s := int(lastDeliveryStatus.Int64)
+		order.LastDeliveryStatus = &s
+	}
+	if lastDeliveryStatusLabel.Valid {
+		order.LastDeliveryStatusLabel = &lastDeliveryStatusLabel.String
+	}
+	if lastDeliveryWaybill.Valid {
+		order.LastDeliveryWaybill = &lastDeliveryWaybill.String
+	}
+	if lastDeliveryImageURL.Valid {
+		order.LastDeliveryImageURL = &lastDeliveryImageURL.String
+	}
+	if lastDeliveryAt.Valid {
+		order.LastDeliveryAt = &lastDeliveryAt.Time
 	}
 
 	if err := json.Unmarshal(shippingAddressJSON, &order.ShippingAddress); err != nil {
