@@ -148,6 +148,15 @@ def _normalize_events(payload):
     return [payload], waybill, payload.get("order_ref") or order_ref_top, None
 
 
+@app.route("/", methods=["GET"])
+def root():
+    """Root path: return 200 with service info so GET / does not 404."""
+    return jsonify({
+        "service": "Delivery Status Webhooks",
+        "endpoints": ["GET /health", "GET /shipment", "POST /webhooks/wassel/status"],
+    }), 200
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"}), 200

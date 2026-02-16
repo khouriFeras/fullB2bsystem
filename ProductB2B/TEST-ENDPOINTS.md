@@ -84,13 +84,13 @@ Expected: JSON with `menus` array (HTTP 200)
 
 ## 6. Menu path by SKU
 
-Product and its menu hierarchy (breadcrumbs) for a given SKU. No auth.
+Product and its menu hierarchy (breadcrumbs) for a given SKU. **Requires auth** (Bearer token: partner or service API key).
 
 ```bash
-curl.exe -s -w "\nHTTP %{http_code}\n" "https://products.jafarshop.com/menu-path-by-sku?sku=MK4820b"
+curl.exe -s -w "\nHTTP %{http_code}\n" -H "Authorization: Bearer YOUR_API_KEY" "https://products.jafarshop.com/menu-path-by-sku?sku=MK4820b"
 ```
 
-Expected: JSON with `productId`, `productName`, `menuPath` (HTTP 200)
+Expected: JSON with `productId`, `productName`, `menuPath` (HTTP 200). Without valid token: HTTP 401.
 
 ---
 

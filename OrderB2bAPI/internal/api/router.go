@@ -25,6 +25,23 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories, logger *zap.L
 	router.Use(customRecovery(logger))
 	router.Use(loggingMiddleware(logger))
 
+	// Root: friendly response so GET / returns 200 instead of 404
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"service": "B2B Order API",
+			"docs":    "https://api.jafarshop.com/health",
+			"endpoints": []string{
+				"GET /health",
+				"POST /internal/webhooks/delivery",
+				"GET /v1/catalog/products",
+				"POST /v1/carts/submit",
+				"GET /v1/orders/:id",
+				"GET /v1/orders/:id/delivery-status",
+				"GET /v1/admin/orders",
+			},
+		})
+	})
+
 	// Health check
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})

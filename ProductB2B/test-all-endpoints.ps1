@@ -59,6 +59,17 @@ function Test-Endpoint {
         $r = Invoke-WebRequest @params -ErrorAction Stop
         $statusCode = $r.StatusCode
         $content = if ($r.Content.Length -gt 200) { $r.Content.Substring(0, 200) + "..." } else { $r.Content }
+        # Prefer a short summary for /menus (hierarchical JSON doesn't truncate well)
+        if ($Url -match '/menus' -and $r.Content -and $statusCode -eq 200) {
+            try {
+                $j = $r.Content | ConvertFrom-Json
+                if ($j.menus -and $j.menus.Count -gt 0) {
+                    $m = $j.menus[0]
+                    $topLevel = if ($m.items) { $m.items.Count } else { 0 }
+                    $content = "count=$($j.count), menus[0]: handle=$($m.handle), title=$($m.title), items: $topLevel top-level (hierarchical: title + children)"
+                }
+            } catch {}
+        }
 
         $ok = ($statusCode -eq $ExpectedStatus)
         if ($ok) {
@@ -154,7 +165,7 @@ Test-Endpoint `
     -Name "5. GET /menus" `
     -Url "$baseUrl/menus" `
     -ExpectedStatus 200 `
-    -Explanation "Returns main-menu only, with item titles only (flat list). No auth."
+    -Explanation "Returns main-menu only, hierarchical items (title + children). No auth."
 
 # ---------------------------------------------------------------------------
 # 6. Menu path by SKU
@@ -162,8 +173,9 @@ Test-Endpoint `
 Test-Endpoint `
     -Name "6. GET /menu-path-by-sku?sku=$sku" `
     -Url "$baseUrl/menu-path-by-sku?sku=$sku" `
+    -Hdrs $headers `
     -ExpectedStatus 200 `
-    -Explanation "Given a product SKU, returns the product and its location in the menu hierarchy (e.g. Home > Category > Subcategory). No auth. Useful for breadcrumbs and SEO."
+    -Explanation "Given a product SKU, returns the product and its location in the menu hierarchy. Requires Bearer token (partner or service API key)."
 
 # ---------------------------------------------------------------------------
 # 7. Debug SKU lookup
