@@ -686,7 +686,7 @@ func main() {
 	mux.HandleFunc("/debug/menu-path-by-sku", handleMenuPathBySKU)
 	mux.HandleFunc("/debug/menu-path-by-sku/", handleMenuPathBySKU)
 
-	// GET /menus or /debug/menus - return all menus with nested items (Option C).
+	// GET /menus or /debug/menus - returns main-menu only, titles only (flat list of item titles).
 	handleAllMenus := func(w http.ResponseWriter, r *http.Request) {
 		menusData, err := listMenus(shop, token, ver)
 		if err != nil {
@@ -716,17 +716,31 @@ func main() {
 			return
 		}
 		nodes := listResp.Data.Menus.Nodes
-		var menusOut []map[string]interface{}
-		for _, m := range nodes {
-			menuRaw, err := fetchMenuWithNestedItems(shop, token, ver, m.ID)
-			if err != nil {
-				// Skip this menu but continue with others
-				menusOut = append(menusOut, map[string]interface{}{
-					"id": m.ID, "handle": m.Handle, "title": m.Title,
-					"items": nil, "error": err.Error(),
-				})
-				continue
+		var mainMenuNode *struct {
+			ID     string `json:"id"`
+			Handle string `json:"handle"`
+			Title  string `json:"title"`
+		}
+		for i := range nodes {
+			if nodes[i].Handle == "main-menu" {
+				mainMenuNode = &nodes[i]
+				break
 			}
+		}
+		if mainMenuNode == nil {
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			json.NewEncoder(w).Encode(map[string]interface{}{"menus": []interface{}{}, "count": 0})
+			return
+		}
+		m := *mainMenuNode
+		var menusOut []map[string]interface{}
+		menuRaw, err := fetchMenuWithNestedItems(shop, token, ver, m.ID)
+		if err != nil {
+			menusOut = append(menusOut, map[string]interface{}{
+				"id": m.ID, "handle": m.Handle, "title": m.Title,
+				"titles": nil, "error": err.Error(),
+			})
+		} else {
 			var menuResp struct {
 				Data struct {
 					Menu struct {
@@ -743,23 +757,21 @@ func main() {
 			if err := json.Unmarshal(menuRaw, &menuResp); err != nil {
 				menusOut = append(menusOut, map[string]interface{}{
 					"id": m.ID, "handle": m.Handle, "title": m.Title,
-					"items": nil, "error": "failed to parse menu: " + err.Error(),
+					"titles": nil, "error": "failed to parse menu: " + err.Error(),
 				})
-				continue
-			}
-			if len(menuResp.Errors) > 0 {
+			} else if len(menuResp.Errors) > 0 {
 				menusOut = append(menusOut, map[string]interface{}{
 					"id": m.ID, "handle": m.Handle, "title": m.Title,
-					"items": nil, "error": menuResp.Errors[0].Message,
+					"titles": nil, "error": menuResp.Errors[0].Message,
 				})
-				continue
+			} else {
+				menusOut = append(menusOut, map[string]interface{}{
+					"id":     menuResp.Data.Menu.ID,
+					"handle": menuResp.Data.Menu.Handle,
+					"title":  menuResp.Data.Menu.Title,
+					"titles": menuItemTitles(menuResp.Data.Menu.Items),
+				})
 			}
-			menusOut = append(menusOut, map[string]interface{}{
-				"id":     menuResp.Data.Menu.ID,
-				"handle": menuResp.Data.Menu.Handle,
-				"title":  menuResp.Data.Menu.Title,
-				"items":  menuResp.Data.Menu.Items,
-			})
 		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		json.NewEncoder(w).Encode(map[string]interface{}{"menus": menusOut, "count": len(menusOut)})
@@ -1886,6 +1898,18 @@ func fetchMenuWithNestedItems(shop, token, ver, menuID string) ([]byte, error) {
 		},
 	}
 	return shopifyGraphQL(shop, token, ver, req)
+}
+
+// menuItemTitles returns a flat list of all menu item titles (recursive, depth-first).
+func menuItemTitles(items []menuItemNode) []string {
+	var out []string
+	for _, it := range items {
+		if it.Title != "" {
+			out = append(out, it.Title)
+		}
+		out = append(out, menuItemTitles(it.Items)...)
+	}
+	return out
 }
 
 // branchSize returns the number of nodes in this item's branch (1 + all descendants).
