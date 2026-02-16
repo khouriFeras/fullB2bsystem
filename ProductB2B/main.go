@@ -738,7 +738,7 @@ func main() {
 		if err != nil {
 			menusOut = append(menusOut, map[string]interface{}{
 				"id": m.ID, "handle": m.Handle, "title": m.Title,
-				"titles": nil, "error": err.Error(),
+				"items": nil, "error": err.Error(),
 			})
 		} else {
 			var menuResp struct {
@@ -757,19 +757,19 @@ func main() {
 			if err := json.Unmarshal(menuRaw, &menuResp); err != nil {
 				menusOut = append(menusOut, map[string]interface{}{
 					"id": m.ID, "handle": m.Handle, "title": m.Title,
-					"titles": nil, "error": "failed to parse menu: " + err.Error(),
+					"items": nil, "error": "failed to parse menu: " + err.Error(),
 				})
 			} else if len(menuResp.Errors) > 0 {
 				menusOut = append(menusOut, map[string]interface{}{
 					"id": m.ID, "handle": m.Handle, "title": m.Title,
-					"titles": nil, "error": menuResp.Errors[0].Message,
+					"items": nil, "error": menuResp.Errors[0].Message,
 				})
 			} else {
 				menusOut = append(menusOut, map[string]interface{}{
 					"id":     menuResp.Data.Menu.ID,
 					"handle": menuResp.Data.Menu.Handle,
 					"title":  menuResp.Data.Menu.Title,
-					"titles": menuItemTitles(menuResp.Data.Menu.Items),
+					"items":  menuItemsHierarchy(menuResp.Data.Menu.Items),
 				})
 			}
 		}
@@ -1908,6 +1908,19 @@ func menuItemTitles(items []menuItemNode) []string {
 			out = append(out, it.Title)
 		}
 		out = append(out, menuItemTitles(it.Items)...)
+	}
+	return out
+}
+
+// menuItemsHierarchy returns a nested structure with only title and children (titles only, hierarchy preserved).
+func menuItemsHierarchy(items []menuItemNode) []map[string]interface{} {
+	var out []map[string]interface{}
+	for _, it := range items {
+		entry := map[string]interface{}{"title": it.Title}
+		if len(it.Items) > 0 {
+			entry["children"] = menuItemsHierarchy(it.Items)
+		}
+		out = append(out, entry)
 	}
 	return out
 }
