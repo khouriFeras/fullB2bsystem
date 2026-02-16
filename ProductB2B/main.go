@@ -381,7 +381,6 @@ func main() {
 			}
 			hierarchyStr := strings.Join(leafFirst, " -> ")
 			menuPaths = append(menuPaths, map[string]interface{}{
-				"menuId":        menuResp.Data.Menu.ID,
 				"menuHandle":    menuResp.Data.Menu.Handle,
 				"menuTitle":     menuResp.Data.Menu.Title,
 				"menuHierarchy": hierarchyStr,
@@ -396,7 +395,6 @@ func main() {
 		out := map[string]interface{}{
 			"productName":   productTitle,
 			"sku":           sku,
-			"productId":     productGID,
 			"menuPaths":     menuPaths,
 			"menuHierarchy": firstHierarchy,
 			"menuPath":      firstPath,
