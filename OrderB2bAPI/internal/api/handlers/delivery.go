@@ -20,6 +20,31 @@ import (
 
 const deliveryStatusTimeout = 15 * time.Second
 
+// wasselStatusLabels maps Wassel Status (integer) to human-readable label (from WASSEL-WEBHOOK-SPEC.json).
+var wasselStatusLabels = map[int]string{
+	51:  "Departed from origin – incoming",
+	56:  "Arrival to gateway – incoming",
+	57:  "Under clearance – incoming",
+	58:  "Customs released – incoming",
+	60:  "Assign driver to pick up",
+	100: "Picked up by driver",
+	120: "Item stored in warehouse",
+	121: "Departed to airport",
+	123: "Departed from origin – outgoing",
+	130: "Out for delivery",
+	170: "Delivered to customer",
+	180: "Returned from customer",
+	190: "Item returned to returned shelf",
+	210: "Returned to shipper (RTO)",
+}
+
+func wasselStatusLabel(code int) string {
+	if s, ok := wasselStatusLabels[code]; ok {
+		return s
+	}
+	return ""
+}
+
 // internalDeliveryWebhookBody is the payload from GetDeliveryStatus (forwarded from Wassel).
 type internalDeliveryWebhookBody struct {
 	ItemReferenceNo     string `json:"ItemReferenceNo"`
@@ -215,27 +240,51 @@ func HandleInternalDeliveryWebhook(cfg *config.Config, repos *repository.Reposit
 		if deliveryImageURL == "" {
 			deliveryImageURL = body.DeliveryImageUrlAlt
 		}
+		statusLabel := wasselStatusLabel(status)
 
 		order, err := repos.SupplierOrder.GetByShopifyOrderID(c.Request.Context(), strings.TrimSpace(itemRef))
 		if err != nil {
 			if _, ok := err.(*errors.ErrNotFound); ok {
 				logger.Info("Internal delivery webhook: no order for ItemReferenceNo", zap.String("item_reference_no", itemRef))
+				c.JSON(http.StatusOK, gin.H{
+					"ok":      true,
+					"status":  "not_found",
+					"message": "no order for ItemReferenceNo",
+					"shipment": gin.H{
+						"status":             status,
+						"status_label":       statusLabel,
+						"waybill":            waybill,
+						"delivery_image_url": deliveryImageURL,
+						"item_reference_no":  itemRef,
+					},
+				})
 			} else {
 				logger.Warn("Internal delivery webhook: lookup failed", zap.String("item_reference_no", itemRef), zap.Error(err))
+				c.JSON(http.StatusOK, gin.H{"ok": true, "status": "error", "message": "order lookup failed"})
 			}
-			c.JSON(http.StatusOK, gin.H{"ok": true})
 			return
 		}
 
 		partner, err := repos.Partner.GetByID(c.Request.Context(), order.PartnerID)
 		if err != nil {
 			logger.Warn("Internal delivery webhook: partner lookup failed", zap.String("order_id", order.ID.String()), zap.Error(err))
-			c.JSON(http.StatusOK, gin.H{"ok": true})
+			c.JSON(http.StatusOK, gin.H{"ok": true, "status": "error", "message": "partner lookup failed"})
 			return
 		}
 
 		if partner.WebhookURL == nil || *partner.WebhookURL == "" {
-			c.JSON(http.StatusOK, gin.H{"ok": true})
+			c.JSON(http.StatusOK, gin.H{
+				"ok":      true,
+				"status":  "no_webhook",
+				"message": "partner has no webhook URL",
+				"shipment": gin.H{
+					"status":             status,
+					"status_label":       statusLabel,
+					"waybill":            waybill,
+					"delivery_image_url": deliveryImageURL,
+					"item_reference_no":  itemRef,
+				},
+			})
 			return
 		}
 
@@ -250,6 +299,18 @@ func HandleInternalDeliveryWebhook(cfg *config.Config, repos *repository.Reposit
 			"shipping_address":  order.ShippingAddress,
 		}
 		go service.NotifyDeliveryUpdate(*partner.WebhookURL, webhookPayload, logger)
-		c.JSON(http.StatusOK, gin.H{"ok": true})
+		c.JSON(http.StatusOK, gin.H{
+			"ok":      true,
+			"status":  "forwarded",
+			"message": "delivery update forwarded to partner",
+			"shipment": gin.H{
+				"status":             status,
+				"status_label":       statusLabel,
+				"waybill":            waybill,
+				"delivery_image_url": deliveryImageURL,
+				"item_reference_no":  itemRef,
+				"partner_order_id":   order.PartnerOrderID,
+			},
+		})
 	}
 }
