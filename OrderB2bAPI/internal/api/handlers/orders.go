@@ -3,14 +3,17 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"github.com/jafarshop/b2bapi/internal/api/middleware"
+	"github.com/jafarshop/b2bapi/internal/config"
 	"github.com/jafarshop/b2bapi/internal/domain"
 	"github.com/jafarshop/b2bapi/internal/repository"
+	"github.com/jafarshop/b2bapi/internal/service"
 	"github.com/jafarshop/b2bapi/pkg/errors"
 )
 
@@ -59,8 +62,20 @@ type OrderItemResponse struct {
 	ProductImageURL *string `json:"product_image_url,omitempty"`
 }
 
+// shopifyFulfillmentStatusToOrderStatus maps Shopify displayFulfillmentStatus to our domain.OrderStatus.
+func shopifyFulfillmentStatusToOrderStatus(shopifyStatus string) (domain.OrderStatus, bool) {
+	switch strings.ToUpper(strings.TrimSpace(shopifyStatus)) {
+	case "FULFILLED", "PARTIALLY_FULFILLED", "RESTOCKED":
+		return domain.OrderStatusFulfilled, true
+	case "UNFULFILLED":
+		return domain.OrderStatusUnfulfilled, true
+	default:
+		return "", false
+	}
+}
+
 // HandleGetOrder handles GET /v1/orders/:id
-func HandleGetOrder(repos *repository.Repositories, logger *zap.Logger) gin.HandlerFunc {
+func HandleGetOrder(cfg *config.Config, repos *repository.Repositories, logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get partner from context
 		partner, ok := middleware.GetPartnerFromContext(c)
@@ -90,6 +105,25 @@ func HandleGetOrder(repos *repository.Repositories, logger *zap.Logger) gin.Hand
 		if order.PartnerID != partner.ID {
 			c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
 			return
+		}
+
+		// Sync status from Shopify when we have a linked Shopify order (so status always reflects Shopify)
+		if order.ShopifyOrderID != nil && *order.ShopifyOrderID != "" {
+			shopifySvc := service.NewShopifyService(cfg.Shopify, repos, logger)
+			shopifyStatus, tc, tn, tu, syncErr := shopifySvc.GetOrderFulfillmentStatus(c.Request.Context(), *order.ShopifyOrderID)
+			if syncErr != nil {
+				logger.Debug("Could not sync order status from Shopify (order may not exist yet)", zap.String("shopify_order_id", *order.ShopifyOrderID), zap.Error(syncErr))
+			} else if syncedStatus, ok := shopifyFulfillmentStatusToOrderStatus(shopifyStatus); ok {
+				_ = repos.SupplierOrder.UpdateStatusFromShopify(c.Request.Context(), order.ID, syncedStatus)
+				order.Status = syncedStatus
+				// If Shopify has tracking and we don't, persist it
+				if tn != nil && *tn != "" && (order.TrackingNumber == nil || *order.TrackingNumber == "") {
+					_ = repos.SupplierOrder.UpdateTracking(c.Request.Context(), order.ID, tc, tn, tu)
+					order.TrackingCarrier = tc
+					order.TrackingNumber = tn
+					order.TrackingURL = tu
+				}
+			}
 		}
 
 		// Get order items

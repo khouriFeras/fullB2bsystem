@@ -60,7 +60,7 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories, logger *zap.L
 		{
 			partnerRoutes.GET("/catalog/products", handlers.HandleGetCatalogProducts(cfg, repos, logger))
 			partnerRoutes.POST("/carts/submit", handlers.HandleCartSubmit(cfg, repos, logger))
-			partnerRoutes.GET("/orders/:id", handlers.HandleGetOrder(repos, logger))
+			partnerRoutes.GET("/orders/:id", handlers.HandleGetOrder(cfg, repos, logger))
 			partnerRoutes.GET("/orders/:id/delivery-status", handlers.HandleGetOrderDeliveryStatus(cfg, repos, logger))
 		}
 

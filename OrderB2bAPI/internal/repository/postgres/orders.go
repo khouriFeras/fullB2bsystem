@@ -566,6 +566,20 @@ func (r *supplierOrderRepository) UpdateStatus(ctx context.Context, id uuid.UUID
 	return nil
 }
 
+func (r *supplierOrderRepository) UpdateStatusFromShopify(ctx context.Context, id uuid.UUID, status domain.OrderStatus) error {
+	query := `
+		UPDATE supplier_orders
+		SET status = $2, updated_at = $3
+		WHERE id = $1
+	`
+	_, err := r.db.ExecContext(ctx, query, id, status, time.Now())
+	if err != nil {
+		r.logger.Error("Failed to update supplier order status from Shopify", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
 func (r *supplierOrderRepository) UpdateTracking(ctx context.Context, id uuid.UUID, carrier, trackingNumber, trackingURL *string) error {
 	query := `
 		UPDATE supplier_orders

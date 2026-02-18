@@ -130,6 +130,62 @@ func (s *shopifyService) GetOrderGIDByName(ctx context.Context, orderName string
 	return result.Orders.Edges[0].Node.ID, nil
 }
 
+// GetOrderFulfillmentStatus fetches an order from Shopify by name (e.g. "1040") and returns
+// displayFulfillmentStatus and the first fulfillment's tracking (if any).
+// Used to sync supplier_orders.status from Shopify on GET order.
+func (s *shopifyService) GetOrderFulfillmentStatus(ctx context.Context, orderName string) (
+	displayFulfillmentStatus string,
+	trackingCompany, trackingNumber, trackingURL *string,
+	err error,
+) {
+	queryName := orderName
+	if queryName != "" && !strings.HasPrefix(queryName, "#") {
+		queryName = "#" + queryName
+	}
+	queryStr := fmt.Sprintf(shopify.OrderByNumberQueryTemplate, "name:"+queryName)
+	resp, err := s.client.Execute(queryStr, nil)
+	if err != nil {
+		return "", nil, nil, nil, fmt.Errorf("get order by number: %w", err)
+	}
+	var result struct {
+		Orders struct {
+			Edges []struct {
+				Node struct {
+					DisplayFulfillmentStatus string `json:"displayFulfillmentStatus"`
+					Fulfillments             []struct {
+						TrackingInfo struct {
+							Number  string `json:"number"`
+							URL     string `json:"url"`
+							Company string `json:"company"`
+						} `json:"trackingInfo"`
+					} `json:"fulfillments"`
+				} `json:"node"`
+			} `json:"edges"`
+		} `json:"orders"`
+	}
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		return "", nil, nil, nil, fmt.Errorf("parse orders response: %w", err)
+	}
+	if len(result.Orders.Edges) == 0 {
+		return "", nil, nil, nil, fmt.Errorf("order not found: %s", orderName)
+	}
+	node := result.Orders.Edges[0].Node
+	displayFulfillmentStatus = node.DisplayFulfillmentStatus
+	if len(node.Fulfillments) > 0 {
+		ti := node.Fulfillments[0].TrackingInfo
+		if ti.Number != "" {
+			trackingNumber = &ti.Number
+		}
+		if ti.URL != "" {
+			trackingURL = &ti.URL
+		}
+		if ti.Company != "" {
+			trackingCompany = &ti.Company
+		}
+	}
+	return displayFulfillmentStatus, trackingCompany, trackingNumber, trackingURL, nil
+}
+
 // SetOrderPartnerMetafield sets the custom.parnters metafield on a Shopify Order (by order name, e.g. "#1033").
 func (s *shopifyService) SetOrderPartnerMetafield(ctx context.Context, shopifyOrderName string, partnerName string) error {
 	orderGID, err := s.GetOrderGIDByName(ctx, shopifyOrderName)
@@ -620,7 +676,7 @@ func (s *shopifyService) CreateDraftOrder(
 		LineItems:       lineItems,
 		ShippingAddress: &shippingAddr,
 		Tags:            tags,
-		Note:            stringPtr(fmt.Sprintf("Partner Order ID: %s", order.PartnerOrderID)),
+		Note:            stringPtr(order.PartnerOrderID),
 		Metafields: []shopify.MetafieldInput{
 			{Namespace: "custom", Key: "parnters", Type: "single_line_text_field", Value: partnerName},
 		},

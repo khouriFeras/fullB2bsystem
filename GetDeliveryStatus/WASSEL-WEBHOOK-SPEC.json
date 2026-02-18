@@ -1,139 +1,59 @@
 {
-  "title": "JafarShop – How we want to receive delivery status from Wassel",
+  "title": "JafarShop – Delivery status webhook (updates our database)",
   "version": "1.0",
+  "description": "When you send this webhook, we update the delivery status in our database for the order identified by ItemReferenceNo. Partners can then retrieve it via our API.",
   "webhook": {
     "method": "POST",
-    "urls": {
-      "production": "https://webhooks.jafarshop.com/webhooks/wassel/status"
-    },
+    "url": "https://webhooks.jafarshop.com/webhooks/wassel/status",
     "headers": {
       "Content-Type": "application/json",
-      "Authorization": "Bearer <WASSEL_SHARED_SECRET>"
+      "Authorization": "Bearer <token we provide you>"
     },
     "success_response": {
       "status_code": 200,
       "body": { "ok": true }
     },
     "error_responses": {
+      "400": "Invalid JSON or missing required fields (ItemReferenceNo, Status)",
       "401": "Missing or invalid Authorization header",
-      "400": "Invalid JSON or missing required fields (see required_fields)",
       "503": "Webhook not configured"
-    },
-    "retries_and_timeout": {
-      "timeout_seconds": 10,
-      "retries": "Please retry on 5xx or connection failure (e.g. 2–3 attempts with backoff). We respond within a few seconds."
     }
   },
-  "accepted_format": "Wassel native: one event per webhook. ItemReferenceNo (string) + Status (integer). Optional: Waybill, DeliveryImageUrl, OccurredAt.",
-  "required_fields_wassel": [
-    "ItemReferenceNo (string – shipper reference / our order number)",
-    "Status (integer – see status_codes_wassel below)"
-  ],
-  "status_codes_wassel": {
-    "60": "Assign driver to pick up",
-    "100": "Picked up by driver",
-    "120": "Item stored in warehouse",
-    "130": "Out for delivery",
-    "170": "Delivered to customer",
-    "180": "Returned from customer",
-    "210": "Returned to shipper (RTO)",
+  "fields_used_to_update_database": {
+    "required": {
+      "ItemReferenceNo": "string – our order reference (e.g. Shopify order number like 1039, or our partner_order_id). We use this to find the order and update its last delivery status.",
+      "Status": "integer – Wassel status code (see status_codes below). We store this and the matching label in our database."
+    },
+    "optional_stored": {
+      "Waybill": "string – we store this if provided",
+      "DeliveryImageUrl": "string – proof-of-delivery URL; we store this if provided (especially useful when Status is 170)"
+    }
+  },
+  "status_codes": {
     "51": "Departed from origin – incoming",
     "56": "Arrival to gateway – incoming",
     "57": "Under clearance – incoming",
     "58": "Customs released – incoming",
+    "60": "Assign driver to pick up",
+    "100": "Picked up by driver",
+    "120": "Item stored in warehouse",
     "121": "Departed to airport",
     "123": "Departed from origin – outgoing",
-    "190": "Item returned to returned shelf"
+    "130": "Out for delivery",
+    "170": "Delivered to customer",
+    "180": "Returned from customer",
+    "190": "Item returned to returned shelf",
+    "210": "Returned to shipper (RTO)"
   },
-  "optional_fields_wassel": [
-    "Waybill (string)",
-    "DeliveryImageUrl (string – proof-of-delivery when Status is 170)",
-    "OccurredAt (string, ISO-8601)",
-    "Note (string)"
-  ],
-  "payload_example_wassel": {
-    "ItemReferenceNo": "12345",
+  "payload_example": {
+    "ItemReferenceNo": "1039",
     "Status": 170,
     "Waybill": "26020021000001",
     "DeliveryImageUrl": "https://example.com/proof.jpg"
   },
-  "required_fields_per_event": [
-    "event_id (string, unique per update)",
-    "waybill (string)",
-    "status.code (string)",
-    "occurred_at (string, ISO-8601 datetime, e.g. 2026-02-15T10:22:31+03:00)"
-  ],
-  "optional_fields": [
-    "order_ref (string – we use Shopify order id with you)",
-    "status.name_en (string)",
-    "status.name_ar (string)",
-    "location.city (string)",
-    "location.area (string)",
-    "location.country (string, e.g. JO)",
-    "note (string)",
-    "delivery_image_url (string, single URL to proof-of-delivery image – please send when status is DELIVERED)"
-  ],
-  "allowed_status_codes": [
-    "CREATED",
-    "PICKED_UP",
-    "IN_TRANSIT",
-    "ARRIVED_AT_HUB",
-    "OUT_FOR_DELIVERY",
-    "DELIVERED",
-    "DELIVERY_FAILED",
-    "CANCELED",
-    "RETURNED"
-  ],
-  "payload_examples": {
-    "single_event": {
-      "event_id": "ws_9f3b1c2a-1d6c-4c8a-9ef1-9a2e8f1a0d01",
-      "waybill": "WAS123456789",
-      "order_ref": "JS-100245",
-      "status": {
-        "code": "OUT_FOR_DELIVERY",
-        "name_en": "Out for delivery",
-        "name_ar": "خرج للتسليم"
-      },
-      "occurred_at": "2026-02-15T10:22:31+03:00",
-      "location": {
-        "city": "Amman",
-        "area": "Khalda",
-        "country": "JO"
-      },
-      "note": "Courier assigned"
-    },
-    "bulk_events": {
-      "waybill": "WAS123456789",
-      "order_ref": "JS-100245",
-      "events": [
-        {
-          "event_id": "ws_001",
-          "status": { "code": "PICKED_UP", "name_en": "Picked up", "name_ar": "تم الاستلام" },
-          "occurred_at": "2026-02-14T16:10:00+03:00",
-          "location": { "city": "Amman", "country": "JO" }
-        },
-        {
-          "event_id": "ws_002",
-          "status": { "code": "OUT_FOR_DELIVERY", "name_en": "Out for delivery", "name_ar": "خرج للتسليم" },
-          "occurred_at": "2026-02-15T10:22:31+03:00",
-          "location": { "city": "Amman", "country": "JO" }
-        }
-      ]
-    },
-    "delivered_event_with_image": {
-      "event_id": "ws_delivered_001",
-      "waybill": "WAS123456789",
-      "order_ref": "JS-100245",
-      "status": {
-        "code": "DELIVERED",
-        "name_en": "Delivered",
-        "name_ar": "تم التسليم"
-      },
-      "occurred_at": "2026-02-16T14:00:00+03:00",
-      "location": { "city": "Amman", "area": "Khalda", "country": "JO" },
-      "note": "Signed by recipient",
-      "delivery_image_url": "https://example.com/proof/abc123.jpg"
-    }
+  "minimal_payload_example": {
+    "ItemReferenceNo": "1039",
+    "Status": 130
   },
-  "note_to_wassel": " Please send Delivery ImageUrl when Status is 170 (delivered)."
+  "note": "Send DeliveryImageUrl when Status is 170 (delivered) if you have proof-of-delivery. ItemReferenceNo must be the value we use to identify the order (we accept Shopify order number or our partner_order_id)."
 }
