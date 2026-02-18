@@ -18,6 +18,7 @@ type Config struct {
 	API                   APIConfig
 	LogLevel              string
 	DeliveryWebhookSecret string // DELIVERY_WEBHOOK_SECRET: auth for POST /internal/webhooks/delivery from GetDeliveryStatus
+	ShopifyWebhookSecret  string // SHOPIFY_WEBHOOK_SECRET: verify incoming Shopify webhooks (X-Shopify-Hmac-Sha256)
 }
 
 // GetDeliveryStatusConfig is used to call GetDeliveryStatus (Wassel) for shipment/delivery status
@@ -103,6 +104,7 @@ func Load() (*Config, error) {
 		},
 		LogLevel:              getEnvOrViper("LOG_LEVEL", "info"),
 		DeliveryWebhookSecret: strings.TrimSpace(getEnvOrViper("DELIVERY_WEBHOOK_SECRET", "")),
+		ShopifyWebhookSecret:  strings.TrimSpace(getEnvOrViper("SHOPIFY_WEBHOOK_SECRET", "")),
 	}
 
 	// Validate required fields
