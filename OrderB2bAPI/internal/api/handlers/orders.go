@@ -63,11 +63,12 @@ type OrderItemResponse struct {
 }
 
 // shopifyFulfillmentStatusToOrderStatus maps Shopify displayFulfillmentStatus to our domain.OrderStatus.
+// Shopify can return FULFILLED, DELIVERED, IN_TRANSIT, PARTIALLY_FULFILLED, UNFULFILLED, etc.
 func shopifyFulfillmentStatusToOrderStatus(shopifyStatus string) (domain.OrderStatus, bool) {
 	switch strings.ToUpper(strings.TrimSpace(shopifyStatus)) {
-	case "FULFILLED", "PARTIALLY_FULFILLED", "RESTOCKED":
+	case "FULFILLED", "PARTIALLY_FULFILLED", "RESTOCKED", "DELIVERED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "PICKED_UP", "IN_PROGRESS", "SUBMITTED", "CONFIRMED", "MARKED_AS_FULFILLED":
 		return domain.OrderStatusFulfilled, true
-	case "UNFULFILLED":
+	case "UNFULFILLED", "PENDING_FULFILLMENT", "OPEN", "SCHEDULED", "ON_HOLD":
 		return domain.OrderStatusUnfulfilled, true
 	default:
 		return "", false
@@ -112,10 +113,11 @@ func HandleGetOrder(cfg *config.Config, repos *repository.Repositories, logger *
 			shopifySvc := service.NewShopifyService(cfg.Shopify, repos, logger)
 			shopifyStatus, tc, tn, tu, syncErr := shopifySvc.GetOrderFulfillmentStatus(c.Request.Context(), *order.ShopifyOrderID)
 			if syncErr != nil {
-				logger.Debug("Could not sync order status from Shopify (order may not exist yet)", zap.String("shopify_order_id", *order.ShopifyOrderID), zap.Error(syncErr))
+				logger.Info("Sync order status from Shopify failed", zap.String("shopify_order_id", *order.ShopifyOrderID), zap.String("partner_order_id", order.PartnerOrderID), zap.Error(syncErr))
 			} else if syncedStatus, ok := shopifyFulfillmentStatusToOrderStatus(shopifyStatus); ok {
 				_ = repos.SupplierOrder.UpdateStatusFromShopify(c.Request.Context(), order.ID, syncedStatus)
 				order.Status = syncedStatus
+				logger.Info("Synced order status from Shopify", zap.String("partner_order_id", order.PartnerOrderID), zap.String("shopify_status", shopifyStatus), zap.String("status", string(syncedStatus)))
 				// If Shopify has tracking and we don't, persist it
 				if tn != nil && *tn != "" && (order.TrackingNumber == nil || *order.TrackingNumber == "") {
 					_ = repos.SupplierOrder.UpdateTracking(c.Request.Context(), order.ID, tc, tn, tu)
@@ -123,6 +125,8 @@ func HandleGetOrder(cfg *config.Config, repos *repository.Repositories, logger *
 					order.TrackingNumber = tn
 					order.TrackingURL = tu
 				}
+			} else {
+				logger.Debug("Shopify fulfillment status not mapped, keeping DB status", zap.String("shopify_order_id", *order.ShopifyOrderID), zap.String("shopify_status", shopifyStatus))
 			}
 		}
 

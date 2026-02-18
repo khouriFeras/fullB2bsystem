@@ -2,7 +2,7 @@ $key = "partner123"
 $body = @{
   partner_order_id = "TEST-ORDER-$(Get-Date -Format 'yyyyMMdd-HHmm')"
   items = @(@{ sku = "1102"; title = "طاولة بيبي فوت فوسبول World Soccer بإطار فولاذي مقاوم للأجواء عالية الأداء"; price = 10; quantity = 2 })
-  customer = @{ first_name = "test3"; last_name = "User3"; phone_number = "+962700000022"; email = "test3@test.com" }
+  customer = @{ first_name = "test4"; last_name = "User4"; phone_number = "+962700000021"; email = "test4@test.com" }
   shipping = @{ city = "Amman"; address = "123 St"; postal_code = "11118"; country = "JO" }
   totals = @{ subtotal = 10; tax = 0; shipping = 0; total = 10 }
 } | ConvertTo-Json -Depth 5
