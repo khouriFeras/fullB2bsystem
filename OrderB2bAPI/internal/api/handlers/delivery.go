@@ -1,18 +1,22 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"github.com/jafarshop/b2bapi/internal/api/middleware"
 	"github.com/jafarshop/b2bapi/internal/config"
+	"github.com/jafarshop/b2bapi/internal/domain"
 	"github.com/jafarshop/b2bapi/internal/repository"
 	"github.com/jafarshop/b2bapi/internal/service"
 	"github.com/jafarshop/b2bapi/pkg/errors"
@@ -28,7 +32,7 @@ var wasselStatusLabels = map[int]string{
 	58:  "Customs released – incoming",
 	60:  "Assign driver to pick up",
 	100: "Picked up by driver",
-	120: "Item stored in warehouse",
+	120: "In Warehouse",
 	121: "Departed to airport",
 	123: "Departed from origin – outgoing",
 	130: "Out for delivery",
@@ -96,8 +100,9 @@ func HandleGetOrderDeliveryStatus(cfg *config.Config, repos *repository.Reposito
 			if order.LastDeliveryStatus != nil {
 				statusVal = *order.LastDeliveryStatus
 			}
-			label := ""
-			if order.LastDeliveryStatusLabel != nil {
+			// Use current label from code so already-stored webhooks show updated labels (e.g. 120 → "In Warehouse")
+			label := wasselStatusLabel(statusVal)
+			if label == "" && order.LastDeliveryStatusLabel != nil {
 				label = *order.LastDeliveryStatusLabel
 			}
 			waybill := ""
@@ -230,6 +235,39 @@ func HandleGetOrderDeliveryStatus(cfg *config.Config, repos *repository.Reposito
 	}
 }
 
+// createMinimalOrderFromWassel creates a minimal supplier order for an unknown ItemReferenceNo so we can store delivery status.
+// Used when WASSEL_DEFAULT_PARTNER_ID is set. Returns the created order or an error.
+func createMinimalOrderFromWassel(ctx context.Context, repos *repository.Repositories, partnerID uuid.UUID, itemRef string, logger *zap.Logger) (*domain.SupplierOrder, error) {
+	order := &domain.SupplierOrder{
+		ID:             uuid.New(),
+		PartnerID:      partnerID,
+		PartnerOrderID: itemRef,
+		Status:         domain.OrderStatusUnfulfilled,
+		CustomerName:   "Wassel delivery",
+		CustomerPhone:  "",
+		ShippingAddress: map[string]interface{}{},
+		CartTotal:      0,
+		PaymentStatus:  "",
+	}
+	if itemRef != "" && isDigitsOnly(itemRef) {
+		order.ShopifyOrderID = &itemRef
+	}
+	if err := repos.SupplierOrder.Create(ctx, order); err != nil {
+		return nil, err
+	}
+	logger.Info("Internal delivery webhook: created minimal order for ItemReferenceNo", zap.String("item_reference_no", itemRef), zap.String("order_id", order.ID.String()))
+	return order, nil
+}
+
+func isDigitsOnly(s string) bool {
+	for _, r := range s {
+		if !unicode.IsDigit(r) {
+			return false
+		}
+	}
+	return len(s) > 0
+}
+
 // HandleInternalDeliveryWebhook handles POST /internal/webhooks/delivery from GetDeliveryStatus.
 // Looks up order by ItemReferenceNo (Shopify order id), finds partner, and if partner has webhook_url
 // sends the delivery update only to that partner.
@@ -280,32 +318,62 @@ func HandleInternalDeliveryWebhook(cfg *config.Config, repos *repository.Reposit
 		statusLabel := wasselStatusLabel(status)
 		itemRefTrim := strings.TrimSpace(itemRef)
 
-		order, err := repos.SupplierOrder.GetByShopifyOrderID(c.Request.Context(), itemRefTrim)
+		var order *domain.SupplierOrder
+		var err error
+		var defaultPartnerID uuid.UUID
+		if cfg.WasselDefaultPartnerID != "" {
+			if parsed, parseErr := uuid.Parse(cfg.WasselDefaultPartnerID); parseErr == nil {
+				defaultPartnerID = parsed
+			}
+		}
+
+		if defaultPartnerID != uuid.Nil {
+			order, err = repos.SupplierOrder.GetByShopifyOrderIDPreferredPartner(c.Request.Context(), itemRefTrim, defaultPartnerID)
+		} else {
+			order, err = repos.SupplierOrder.GetByShopifyOrderID(c.Request.Context(), itemRefTrim)
+		}
 		if err != nil {
 			if _, ok := err.(*errors.ErrNotFound); ok {
-				// Fallback: treat ItemReferenceNo as partner_order_id (e.g. test-order-5006 or external ref)
 				order, err = repos.SupplierOrder.GetByPartnerOrderID(c.Request.Context(), itemRefTrim)
 			}
 			if err != nil {
 				if _, ok := err.(*errors.ErrNotFound); ok {
-					logger.Info("Internal delivery webhook: no order for ItemReferenceNo (tried shopify_order_id and partner_order_id)", zap.String("item_reference_no", itemRef))
-					c.JSON(http.StatusOK, gin.H{
-						"ok":      true,
-						"status":  "not_found",
-						"message": "no order for ItemReferenceNo",
-						"shipment": gin.H{
-							"status":             status,
-							"status_label":       statusLabel,
-							"waybill":            waybill,
-							"delivery_image_url": deliveryImageURL,
-							"item_reference_no":  itemRef,
-						},
-					})
+					if defaultPartnerID != uuid.Nil {
+						created, createErr := createMinimalOrderFromWassel(c.Request.Context(), repos, defaultPartnerID, itemRefTrim, logger)
+						if createErr != nil {
+							order, _ = repos.SupplierOrder.GetByShopifyOrderIDPreferredPartner(c.Request.Context(), itemRefTrim, defaultPartnerID)
+							if order == nil {
+								order, _ = repos.SupplierOrder.GetByShopifyOrderID(c.Request.Context(), itemRefTrim)
+							}
+							if order == nil {
+								logger.Warn("Internal delivery webhook: order creation failed for unknown ItemReferenceNo", zap.String("item_reference_no", itemRef), zap.Error(createErr))
+								c.JSON(http.StatusOK, gin.H{"ok": true, "status": "error", "message": "order creation failed", "shipment": gin.H{"status": status, "status_label": statusLabel, "waybill": waybill, "delivery_image_url": deliveryImageURL, "item_reference_no": itemRef}})
+								return
+							}
+						} else {
+							order = created
+						}
+					} else {
+						logger.Info("Internal delivery webhook: no order for ItemReferenceNo (tried shopify_order_id and partner_order_id)", zap.String("item_reference_no", itemRef))
+						c.JSON(http.StatusOK, gin.H{
+							"ok":      true,
+							"status":  "not_found",
+							"message": "no order for ItemReferenceNo",
+							"shipment": gin.H{
+								"status":             status,
+								"status_label":       statusLabel,
+								"waybill":            waybill,
+								"delivery_image_url": deliveryImageURL,
+								"item_reference_no":  itemRef,
+							},
+						})
+						return
+					}
 				} else {
 					logger.Warn("Internal delivery webhook: lookup failed", zap.String("item_reference_no", itemRef), zap.Error(err))
 					c.JSON(http.StatusOK, gin.H{"ok": true, "status": "error", "message": "order lookup failed"})
+					return
 				}
-				return
 			}
 		}
 

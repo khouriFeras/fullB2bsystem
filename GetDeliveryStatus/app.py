@@ -24,6 +24,24 @@ from connect import get_shipment_details
 app = Flask(__name__)
 
 # --- Wassel inbound webhook helpers ---
+# Labels for log readability (matches WASSEL-WEBHOOK-SPEC.json / OrderB2bAPI)
+WASSEL_STATUS_LABELS = {
+    51: "Departed from origin – incoming",
+    56: "Arrival to gateway – incoming",
+    57: "Under clearance – incoming",
+    58: "Customs released – incoming",
+    60: "Assign driver to pick up",
+    100: "Picked up by driver",
+    120: "In Warehouse",
+    121: "Departed to airport",
+    123: "Departed from origin – outgoing",
+    130: "Out for delivery",
+    170: "Delivered to customer",
+    180: "Returned from customer",
+    190: "Item returned to returned shelf",
+    210: "Returned to shipper (RTO)",
+}
+
 
 def _forward_to_order_b2b_api(payload):
     """
@@ -218,12 +236,22 @@ def webhook_wassel_status():
     # Prefer Wassel's native format (ItemReferenceNo + Status)
     err = _validate_wassel_format(payload)
     if err is None:
+        ref = payload.get("ItemReferenceNo") or payload.get("itemReferenceNo") or ""
+        status = payload.get("Status") or payload.get("status") or ""
+        label = WASSEL_STATUS_LABELS.get(status) if isinstance(status, int) else ""
+        logging.info(
+            "Wassel webhook received: ItemReferenceNo=%s Status=%s%s",
+            ref,
+            status,
+            f" ({label})" if label else "",
+        )
         _forward_to_order_b2b_api(payload)
         return jsonify({"ok": True}), 200
     # Fallback: extended format (event_id, waybill, status.code, occurred_at)
     events, _waybill, _order_ref, err_ext = _normalize_events(payload)
     if err_ext:
         return jsonify({"error": err or err_ext}), 400
+    logging.info("Wassel webhook received (extended format), events=%s", len(events) if events else 0)
     return jsonify({"ok": True}), 200
 
 

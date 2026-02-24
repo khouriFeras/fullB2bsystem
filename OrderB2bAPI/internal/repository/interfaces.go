@@ -24,6 +24,7 @@ type SupplierOrderRepository interface {
 	GetByPartnerIDAndPartnerOrderID(ctx context.Context, partnerID uuid.UUID, partnerOrderID string) (*domain.SupplierOrder, error)
 	GetByPartnerOrderID(ctx context.Context, partnerOrderID string) (*domain.SupplierOrder, error)
 	GetByShopifyOrderID(ctx context.Context, shopifyOrderID string) (*domain.SupplierOrder, error)
+	GetByShopifyOrderIDPreferredPartner(ctx context.Context, shopifyOrderID string, excludePartnerID uuid.UUID) (*domain.SupplierOrder, error)
 	Update(ctx context.Context, order *domain.SupplierOrder) error
 	UpdateStatus(ctx context.Context, id uuid.UUID, status domain.OrderStatus, rejectionReason *string) error
 	UpdateStatusFromShopify(ctx context.Context, id uuid.UUID, status domain.OrderStatus) error

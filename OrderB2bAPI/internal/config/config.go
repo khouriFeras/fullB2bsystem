@@ -17,8 +17,9 @@ type Config struct {
 	GetDeliveryStatus     GetDeliveryStatusConfig
 	API                   APIConfig
 	LogLevel              string
-	DeliveryWebhookSecret string // DELIVERY_WEBHOOK_SECRET: auth for POST /internal/webhooks/delivery from GetDeliveryStatus
-	ShopifyWebhookSecret  string // SHOPIFY_WEBHOOK_SECRET: verify incoming Shopify webhooks (X-Shopify-Hmac-Sha256)
+	DeliveryWebhookSecret   string // DELIVERY_WEBHOOK_SECRET: auth for POST /internal/webhooks/delivery from GetDeliveryStatus
+	ShopifyWebhookSecret    string // SHOPIFY_WEBHOOK_SECRET: verify incoming Shopify webhooks (X-Shopify-Hmac-Sha256)
+	WasselDefaultPartnerID  string // WASSEL_DEFAULT_PARTNER_ID: optional UUID; when set, unknown ItemReferenceNo creates minimal order under this partner
 }
 
 // GetDeliveryStatusConfig is used to call GetDeliveryStatus (Wassel) for shipment/delivery status
@@ -102,9 +103,10 @@ func Load() (*Config, error) {
 		API: APIConfig{
 			KeyHashSalt: getEnvOrViper("API_KEY_HASH_SALT", "default-salt-change-in-production"),
 		},
-		LogLevel:              getEnvOrViper("LOG_LEVEL", "info"),
-		DeliveryWebhookSecret: strings.TrimSpace(getEnvOrViper("DELIVERY_WEBHOOK_SECRET", "")),
-		ShopifyWebhookSecret:  strings.TrimSpace(getEnvOrViper("SHOPIFY_WEBHOOK_SECRET", "")),
+		LogLevel:                getEnvOrViper("LOG_LEVEL", "info"),
+		DeliveryWebhookSecret:   strings.TrimSpace(getEnvOrViper("DELIVERY_WEBHOOK_SECRET", "")),
+		ShopifyWebhookSecret:    strings.TrimSpace(getEnvOrViper("SHOPIFY_WEBHOOK_SECRET", "")),
+		WasselDefaultPartnerID:  strings.TrimSpace(getEnvOrViper("WASSEL_DEFAULT_PARTNER_ID", "")),
 	}
 
 	// Validate required fields
