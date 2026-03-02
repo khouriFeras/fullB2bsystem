@@ -23,6 +23,9 @@ from connect import get_shipment_details
 
 app = Flask(__name__)
 
+# Ensure INFO logs (e.g. "Wassel webhook received") appear when running under Gunicorn
+logging.getLogger().setLevel(logging.INFO)
+
 # --- Wassel inbound webhook helpers ---
 # Labels for log readability (matches WASSEL-WEBHOOK-SPEC.json / OrderB2bAPI)
 WASSEL_STATUS_LABELS = {
